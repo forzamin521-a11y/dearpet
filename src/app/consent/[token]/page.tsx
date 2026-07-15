@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { renderTemplate } from "@/lib/messaging/provider";
+import { renderTemplate } from "@/lib/messaging/templates";
 import { formatKoreanDate, formatKoreanTime } from "@/lib/time";
 import { ConsentSignForm } from "./sign-form";
 

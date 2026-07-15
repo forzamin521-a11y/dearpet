@@ -6,6 +6,8 @@ import { saveAlimtalkTemplate } from "@/lib/actions/messaging";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
@@ -15,8 +17,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Textarea } from "@/components/ui/textarea";
 import { ALIMTALK_KIND_LABEL } from "@/lib/constants";
+import {
+  ALIMTALK_TEMPLATES,
+  renderTemplate,
+  resolveShopVars,
+} from "@/lib/messaging/templates";
 import { formatKoreanDate, formatKoreanTime, todayString } from "@/lib/time";
 import type { AlimtalkKind, AlimtalkLog, AlimtalkTemplate } from "@/lib/types";
 
@@ -54,35 +60,40 @@ export function AlimtalkManager({
   const [editTarget, setEditTarget] = useState<AlimtalkKind | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
 
-  const templateByKind = useMemo(
+  const settingByKind = useMemo(
     () => new Map(templates.map((t) => [t.kind, t])),
     [templates]
   );
 
+  const sampleAutoVars = useMemo(
+    () => ({
+      shopName,
+      shopPhone: shopPhone || "010-0000-0000",
+      customerName: "솜이맘",
+      petNames: "솜이",
+      visitDateTime: `${formatKoreanDate(todayString())} ${formatKoreanTime("14:00")}`,
+      consentLink: "https://dearpet.app/consent/미리보기",
+    }),
+    [shopName, shopPhone]
+  );
+
+  const renderPreview = (kind: AlimtalkKind, shopVars?: Record<string, string>) => {
+    const def = ALIMTALK_TEMPLATES[kind];
+    return renderTemplate(def.body, {
+      ...sampleAutoVars,
+      ...(shopVars ?? resolveShopVars(def, settingByKind.get(kind)?.variables)),
+    });
+  };
+
   const toggleEnabled = (kind: AlimtalkKind, enabled: boolean) => {
-    const template = templateByKind.get(kind);
+    const def = ALIMTALK_TEMPLATES[kind];
+    const vars = resolveShopVars(def, settingByKind.get(kind)?.variables);
     startTransition(async () => {
-      const result = await saveAlimtalkTemplate(
-        kind,
-        template?.content ?? "",
-        enabled
-      );
+      const result = await saveAlimtalkTemplate(kind, vars, enabled);
       if (result.ok) toast.success(enabled ? "사용으로 변경" : "미사용으로 변경");
       else toast.error(result.error);
     });
   };
-
-  const renderPreview = (content: string) =>
-    content
-      .replaceAll("{{shopName}}", shopName)
-      .replaceAll("{{shopPhone}}", shopPhone || "010-0000-0000")
-      .replaceAll("{{customerName}}", "솜이맘")
-      .replaceAll("{{petNames}}", "솜이")
-      .replaceAll(
-        "{{visitDateTime}}",
-        `${formatKoreanDate(todayString())} ${formatKoreanTime("14:00")}`
-      )
-      .replaceAll("{{consentLink}}", "https://dearpet.app/consent/미리보기");
 
   const TemplateRow = ({
     kind,
@@ -91,7 +102,8 @@ export function AlimtalkManager({
     kind: AlimtalkKind;
     showSwitch: boolean;
   }) => {
-    const template = templateByKind.get(kind);
+    const setting = settingByKind.get(kind);
+    const hasShopVars = ALIMTALK_TEMPLATES[kind].shopVars.length > 0;
     return (
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -101,12 +113,12 @@ export function AlimtalkManager({
               <Badge
                 variant="secondary"
                 className={
-                  template?.enabled
+                  setting?.enabled
                     ? "ml-2 bg-green-100 text-green-800"
                     : "ml-2 bg-zinc-100 text-zinc-500"
                 }
               >
-                {template?.enabled ? "사용" : "미사용"}
+                {setting?.enabled ? "사용" : "미사용"}
               </Badge>
             )}
           </CardTitle>
@@ -114,18 +126,18 @@ export function AlimtalkManager({
             <Button
               size="sm"
               variant="outline"
-              onClick={() =>
-                setPreview(renderPreview(template?.content ?? "(내용 없음)"))
-              }
+              onClick={() => setPreview(renderPreview(kind))}
             >
               미리보기
             </Button>
-            <Button size="sm" variant="outline" onClick={() => setEditTarget(kind)}>
-              편집
-            </Button>
+            {hasShopVars && (
+              <Button size="sm" variant="outline" onClick={() => setEditTarget(kind)}>
+                문구 편집
+              </Button>
+            )}
             {showSwitch && (
               <Switch
-                checked={template?.enabled ?? false}
+                checked={setting?.enabled ?? false}
                 disabled={pending}
                 onCheckedChange={(checked) => toggleEnabled(kind, checked)}
               />
@@ -198,18 +210,22 @@ export function AlimtalkManager({
       </Tabs>
 
       {editTarget && (
-        <TemplateEditDialog
+        <VariableEditDialog
           kind={editTarget}
-          initialContent={templateByKind.get(editTarget)?.content ?? ""}
+          initialVars={resolveShopVars(
+            ALIMTALK_TEMPLATES[editTarget],
+            settingByKind.get(editTarget)?.variables
+          )}
           pending={pending}
+          renderPreview={(vars) => renderPreview(editTarget, vars)}
           onClose={() => setEditTarget(null)}
-          onSave={(content) => {
-            const template = templateByKind.get(editTarget);
+          onSave={(vars) => {
+            const setting = settingByKind.get(editTarget);
             startTransition(async () => {
               const result = await saveAlimtalkTemplate(
                 editTarget,
-                content,
-                template?.enabled ?? true
+                vars,
+                setting?.enabled ?? true
               );
               if (result.ok) {
                 toast.success("저장되었습니다.");
@@ -242,50 +258,67 @@ export function AlimtalkManager({
   );
 }
 
-function TemplateEditDialog({
+/**
+ * 알림톡 본문은 카카오 검수 승인 템플릿이라 수정할 수 없고,
+ * 템플릿에 선언된 매장 변수({{extraInfo}} 등)의 값만 편집한다.
+ */
+function VariableEditDialog({
   kind,
-  initialContent,
+  initialVars,
   pending,
+  renderPreview,
   onClose,
   onSave,
 }: {
   kind: AlimtalkKind;
-  initialContent: string;
+  initialVars: Record<string, string>;
   pending: boolean;
+  renderPreview: (vars: Record<string, string>) => string;
   onClose: () => void;
-  onSave: (content: string) => void;
+  onSave: (vars: Record<string, string>) => void;
 }) {
-  const [content, setContent] = useState(initialContent);
+  const [vars, setVars] = useState(initialVars);
+  const def = ALIMTALK_TEMPLATES[kind];
 
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>{ALIMTALK_KIND_LABEL[kind]} 편집</DialogTitle>
+          <DialogTitle>{ALIMTALK_KIND_LABEL[kind]} 문구 편집</DialogTitle>
         </DialogHeader>
-        <div className="space-y-2">
-          <Textarea
-            rows={12}
-            value={content}
-            onChange={(e) => setContent(e.target.value)}
-          />
-          <p className="text-xs text-muted-foreground">
-            사용 가능한 변수: {"{{shopName}}"} 매장명 · {"{{shopPhone}}"} 매장번호
-            · {"{{customerName}}"} 보호자 호칭 · {"{{petNames}}"} 반려동물명 ·{" "}
-            {"{{visitDateTime}}"} 예약 일시
-            {kind === "consent" && (
-              <>
-                {" "}
-                · {"{{consentLink}}"} 동의서 서명 링크
-              </>
-            )}
-          </p>
+        <div className="space-y-4">
+          <div className="space-y-2">
+            {def.shopVars.map((v) => (
+              <div key={v.key} className="space-y-1">
+                <Label htmlFor={`var-${v.key}`}>{v.label}</Label>
+                <Input
+                  id={`var-${v.key}`}
+                  value={vars[v.key] ?? ""}
+                  placeholder={v.placeholder}
+                  maxLength={200}
+                  onChange={(e) =>
+                    setVars((prev) => ({ ...prev, [v.key]: e.target.value }))
+                  }
+                />
+              </div>
+            ))}
+          </div>
+          <div className="space-y-1">
+            <Label>발송 내용</Label>
+            <p className="max-h-56 overflow-y-auto whitespace-pre-wrap rounded-md bg-muted p-3 text-xs">
+              {renderPreview(vars)}
+            </p>
+            <p className="text-xs text-muted-foreground">
+              본문은 카카오 승인 템플릿이라 수정할 수 없으며, 위 문구만 변경할 수
+              있습니다. 예약자·일시 등은 발송 시 자동으로 채워집니다.
+            </p>
+          </div>
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>
             취소
           </Button>
-          <Button disabled={pending} onClick={() => onSave(content)}>
+          <Button disabled={pending} onClick={() => onSave(vars)}>
             저장
           </Button>
         </DialogFooter>

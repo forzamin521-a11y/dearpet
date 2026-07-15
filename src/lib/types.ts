@@ -173,7 +173,8 @@ export interface AlimtalkTemplate {
   id: string;
   shop_id: string;
   kind: AlimtalkKind;
-  content: string;
+  /** 매장이 수정할 수 있는 템플릿 변수값 (본문은 코드에 고정 정의) */
+  variables: Record<string, string>;
   enabled: boolean;
   created_at: string;
 }

@@ -30,8 +30,8 @@ export default async function AlimtalkSettingsPage() {
       <div>
         <h2 className="text-lg font-bold">알림톡 설정</h2>
         <p className="text-sm text-muted-foreground">
-          알림톡 내용을 편집하고 상황별 자동 발송 여부를 설정합니다. 현재는
-          시뮬레이션 모드로, 발송 이력만 기록되고 실제 발송은 되지 않습니다.
+          알림톡 본문은 카카오 승인 템플릿으로 고정되어 있으며, 매장 안내문구와
+          상황별 자동 발송 여부만 설정할 수 있습니다.
         </p>
       </div>
       <AlimtalkManager

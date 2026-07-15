@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getAuthContext } from "@/lib/auth";
+import { ALIMTALK_TEMPLATES } from "@/lib/messaging/templates";
 import type { ActionResult } from "./auth";
 import type { AlimtalkKind } from "@/lib/types";
 
@@ -15,19 +16,33 @@ async function requireOwner() {
 
 // ---------------- 알림톡 템플릿 ----------------
 
+/** 본문은 카카오 승인 템플릿(코드 정의)이라 수정 불가 — 변수값과 사용 여부만 저장 */
 export async function saveAlimtalkTemplate(
   kind: AlimtalkKind,
-  content: string,
+  variables: Record<string, string>,
   enabled: boolean
 ): Promise<ActionResult> {
   const ctx = await requireOwner();
   if (!ctx) return { ok: false, error: "매장관리자만 수정할 수 있습니다." };
 
+  const def = ALIMTALK_TEMPLATES[kind];
+  if (!def) return { ok: false, error: "알 수 없는 알림톡 종류입니다." };
+
+  // 템플릿에 선언된 변수만, 길이 제한을 두고 저장
+  const allowed: Record<string, string> = {};
+  for (const v of def.shopVars) {
+    const value = (variables[v.key] ?? "").trim();
+    if (value.length > 200) {
+      return { ok: false, error: `${v.label}은(는) 200자 이내로 입력해 주세요.` };
+    }
+    allowed[v.key] = value;
+  }
+
   const supabase = await createClient();
   const { error } = await supabase
     .from("alimtalk_templates")
     .upsert(
-      { shop_id: ctx.shop!.id, kind, content, enabled },
+      { shop_id: ctx.shop!.id, kind, variables: allowed, enabled },
       { onConflict: "shop_id,kind" }
     );
   if (error) return { ok: false, error: "저장에 실패했습니다." };

@@ -1,6 +1,12 @@
 import "server-only";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { getMessageProvider, renderTemplate } from "./provider";
+import { getMessageProvider } from "./provider";
+import {
+  ALIGO_TEMPLATE_CODES,
+  ALIMTALK_TEMPLATES,
+  renderTemplate,
+  resolveShopVars,
+} from "./templates";
 import type { AlimtalkKind, Shop } from "@/lib/types";
 import { formatKoreanDate, formatKoreanTime } from "@/lib/time";
 
@@ -17,8 +23,10 @@ export interface AlimtalkContext {
 }
 
 /**
- * 매장 템플릿을 렌더링해 알림톡을 발송(시뮬레이션)하고 이력을 남긴다.
- * 템플릿이 없거나 수신 전화번호가 없으면 조용히 건너뛴다.
+ * 고정 템플릿(코드 정의) + 매장 변수값으로 알림톡을 발송하고 이력을 남긴다.
+ * 본문은 카카오 승인 템플릿과 일치해야 하므로 DB가 아닌 ALIMTALK_TEMPLATES에서 가져오고,
+ * 매장별 설정(alimtalk_templates)은 enabled 여부와 변수값(variables)만 제공한다.
+ * 수신 전화번호가 없으면 조용히 건너뛴다.
  */
 export async function sendAlimtalk(
   kind: AlimtalkKind,
@@ -28,27 +36,33 @@ export async function sendAlimtalk(
   if (!ctx.phone) return;
 
   const admin = createAdminClient();
-  const { data: template } = await admin
+  const { data: setting } = await admin
     .from("alimtalk_templates")
-    .select("content, enabled")
+    .select("enabled, variables")
     .eq("shop_id", ctx.shop.id)
     .eq("kind", kind)
     .single();
 
-  if (!template) return;
-  if (options.onlyIfEnabled && !template.enabled) return;
+  if (options.onlyIfEnabled && !setting?.enabled) return;
 
-  const content = renderTemplate(template.content, {
+  const def = ALIMTALK_TEMPLATES[kind];
+  const content = renderTemplate(def.body, {
     shopName: ctx.shop.name,
     shopPhone: ctx.shop.phone,
     customerName: ctx.customerName,
     petNames: ctx.petNames.join(", "),
     visitDateTime: `${formatKoreanDate(ctx.date)} ${formatKoreanTime(ctx.startTime)}`,
     consentLink: ctx.consentLink ?? "",
+    ...resolveShopVars(def, setting?.variables as Record<string, string> | null),
   });
 
   const provider = getMessageProvider();
-  const status = await provider.send(ctx.phone, content);
+  const status = await provider.send({
+    phone: ctx.phone,
+    content,
+    kind,
+    templateCode: ALIGO_TEMPLATE_CODES[kind],
+  });
 
   await admin.from("alimtalk_logs").insert({
     shop_id: ctx.shop.id,
