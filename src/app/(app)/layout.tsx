@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { getAuthContext, hasPermission } from "@/lib/auth";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
+import { TooltipProvider } from "@/components/ui/tooltip";
 import { AppSidebar } from "@/components/app-sidebar";
 import { AppHeader } from "@/components/app-header";
 
@@ -20,18 +21,20 @@ export default async function AppLayout({
   const isOwner = profile.role === "owner";
 
   return (
-    <SidebarProvider>
-      <AppSidebar
-        shopName={shop.name}
-        userName={profile.name}
-        userEmoji={profile.emoji}
-        canStats={canStats}
-        isOwner={isOwner}
-      />
-      <SidebarInset className="flex min-h-svh flex-col">
-        <AppHeader />
-        <div className="flex flex-1 flex-col overflow-hidden">{children}</div>
-      </SidebarInset>
-    </SidebarProvider>
+    <TooltipProvider>
+      <SidebarProvider>
+        <AppSidebar
+          shopName={shop.name}
+          userName={profile.name}
+          userEmoji={profile.emoji}
+          canStats={canStats}
+          isOwner={isOwner}
+        />
+        <SidebarInset className="flex min-h-svh flex-col">
+          <AppHeader />
+          <div className="flex flex-1 flex-col overflow-hidden">{children}</div>
+        </SidebarInset>
+      </SidebarProvider>
+    </TooltipProvider>
   );
 }
