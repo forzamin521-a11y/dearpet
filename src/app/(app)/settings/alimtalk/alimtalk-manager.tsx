@@ -72,7 +72,7 @@ export function AlimtalkManager({
       customerName: "솜이맘",
       petNames: "솜이",
       visitDateTime: `${formatKoreanDate(todayString())} ${formatKoreanTime("14:00")}`,
-      consentLink: "https://dearpet.app/consent/미리보기",
+      consentLink: `${process.env.NEXT_PUBLIC_APP_URL ?? "https://dearpet.vercel.app"}/consent/미리보기`,
     }),
     [shopName, shopPhone]
   );
