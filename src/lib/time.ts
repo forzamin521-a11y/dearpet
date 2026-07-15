@@ -1,0 +1,67 @@
+/** "HH:MM" 또는 "HH:MM:SS" → 분 */
+export function timeToMinutes(time: string): number {
+  const [h, m] = time.split(":").map(Number);
+  return h * 60 + m;
+}
+
+/** 분 → "HH:MM" */
+export function minutesToTime(minutes: number): string {
+  const h = Math.floor(minutes / 60) % 24;
+  const m = minutes % 60;
+  return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+}
+
+/** "HH:MM" → "오전 10:00" / "오후 02:30" */
+export function formatKoreanTime(time: string): string {
+  const [h, m] = time.split(":").map(Number);
+  const period = h < 12 ? "오전" : "오후";
+  const hour12 = h % 12 === 0 ? 12 : h % 12;
+  return `${period} ${String(hour12).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+}
+
+/** "YYYY-MM-DD" → "07월 15일 수요일" */
+export function formatKoreanDate(dateStr: string): string {
+  const date = new Date(`${dateStr}T00:00:00`);
+  const days = ["일", "월", "화", "수", "목", "금", "토"];
+  return `${String(date.getMonth() + 1).padStart(2, "0")}월 ${String(
+    date.getDate()
+  ).padStart(2, "0")}일 ${days[date.getDay()]}요일`;
+}
+
+/** Date → "YYYY-MM-DD" (로컬 기준) */
+export function toDateString(date: Date): string {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, "0");
+  const d = String(date.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+}
+
+/** 오늘 날짜 "YYYY-MM-DD" */
+export function todayString(): string {
+  return toDateString(new Date());
+}
+
+/** 생년월일 → 만 나이(년) */
+export function ageInYears(birthDate: string): number {
+  const birth = new Date(`${birthDate}T00:00:00`);
+  const now = new Date();
+  let age = now.getFullYear() - birth.getFullYear();
+  const beforeBirthday =
+    now.getMonth() < birth.getMonth() ||
+    (now.getMonth() === birth.getMonth() && now.getDate() < birth.getDate());
+  if (beforeBirthday) age -= 1;
+  return age;
+}
+
+/** 생년월일 → "3살 6개월" */
+export function formatAge(birthDate: string): string {
+  const birth = new Date(`${birthDate}T00:00:00`);
+  const now = new Date();
+  let months =
+    (now.getFullYear() - birth.getFullYear()) * 12 +
+    (now.getMonth() - birth.getMonth());
+  if (now.getDate() < birth.getDate()) months -= 1;
+  const years = Math.floor(months / 12);
+  const rest = months % 12;
+  return `${years}살${rest > 0 ? ` ${rest}개월` : ""}`;
+}
