@@ -149,6 +149,38 @@ export async function signupShop(
   redirect(isSuperAdmin ? "/admin" : "/pending");
 }
 
+/** 본인 비밀번호 변경 — 현재 비밀번호 확인 후 새 비밀번호로 교체 (모든 역할 공통) */
+export async function changeMyPassword(
+  currentPassword: string,
+  newPassword: string
+): Promise<ActionResult> {
+  if (newPassword.length < 6) {
+    return { ok: false, error: "새 비밀번호는 6자 이상이어야 합니다." };
+  }
+  if (currentPassword === newPassword) {
+    return { ok: false, error: "현재 비밀번호와 다른 비밀번호를 입력해 주세요." };
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user?.email) return { ok: false, error: "로그인이 필요합니다." };
+
+  // 현재 비밀번호 검증 (재로그인 방식)
+  const { error: verifyError } = await supabase.auth.signInWithPassword({
+    email: user.email,
+    password: currentPassword,
+  });
+  if (verifyError) {
+    return { ok: false, error: "현재 비밀번호가 올바르지 않습니다." };
+  }
+
+  const { error } = await supabase.auth.updateUser({ password: newPassword });
+  if (error) return { ok: false, error: "비밀번호 변경에 실패했습니다." };
+  return { ok: true };
+}
+
 export async function logout(): Promise<void> {
   const supabase = await createClient();
   await supabase.auth.signOut();

@@ -11,6 +11,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { PasswordChangeForm } from "@/components/password-change-form";
 import type { Shop } from "@/lib/types";
 import { ShopRow } from "./shop-row";
 
@@ -75,6 +76,16 @@ export default async function AdminPage() {
           {others.map((shop) => (
             <ShopRow key={shop.id} shop={shop} />
           ))}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>비밀번호 변경</CardTitle>
+          <CardDescription>슈퍼관리자 계정의 비밀번호를 변경합니다.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <PasswordChangeForm />
         </CardContent>
       </Card>
     </main>

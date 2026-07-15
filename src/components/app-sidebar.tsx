@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import {
   CalendarDays,
   DollarSign,
+  KeyRound,
   LogOut,
   Settings,
   Users,
@@ -86,6 +87,18 @@ export function AppSidebar({
               <span>{userEmoji}</span>
               <span className="truncate font-medium">{userName}</span>
             </div>
+          </SidebarMenuItem>
+          <SidebarMenuItem>
+            <SidebarMenuButton
+              asChild
+              isActive={pathname.startsWith("/account")}
+              tooltip="비밀번호 변경"
+            >
+              <Link href="/account">
+                <KeyRound />
+                <span>비밀번호 변경</span>
+              </Link>
+            </SidebarMenuButton>
           </SidebarMenuItem>
           <SidebarMenuItem>
             <SidebarMenuButton onClick={() => logout()} tooltip="로그아웃">
