@@ -3,7 +3,12 @@
 import { useMemo, useOptimistic, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { CalendarPlus, ChevronLeft, ChevronRight } from "lucide-react";
+import {
+  CalendarPlus,
+  ChevronLeft,
+  ChevronRight,
+  NotebookPen,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import {
@@ -95,6 +100,15 @@ export function ReservationsView(props: ReservationsViewProps) {
     navigate(toDateString(d));
   };
 
+  const saveMemoIfChanged = () => {
+    if (memo !== props.dailyMemo) {
+      startTransition(async () => {
+        const result = await saveDailyMemo(props.date, memo);
+        if (!result.ok) toast.error(result.error);
+      });
+    }
+  };
+
   // detailTarget을 최신 데이터와 동기화 (상태 변경 후 revalidate 반영)
   const detail = detailTarget
     ? props.reservations.find((r) => r.id === detailTarget.id) ?? detailTarget
@@ -127,14 +141,7 @@ export function ReservationsView(props: ReservationsViewProps) {
             rows={6}
             value={memo}
             onChange={(e) => setMemo(e.target.value)}
-            onBlur={() => {
-              if (memo !== props.dailyMemo) {
-                startTransition(async () => {
-                  const result = await saveDailyMemo(props.date, memo);
-                  if (!result.ok) toast.error(result.error);
-                });
-              }
-            }}
+            onBlur={saveMemoIfChanged}
             placeholder="이 날짜의 메모를 남겨보세요"
           />
         </div>
@@ -145,9 +152,14 @@ export function ReservationsView(props: ReservationsViewProps) {
 
       {/* 메인 캘린더 */}
       <div className="flex min-w-0 flex-1 flex-col">
-        <div className="flex items-center justify-between gap-2 border-b p-3">
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b p-3">
           <div className="flex items-center gap-1">
-            <Button size="icon-sm" variant="ghost" onClick={() => shiftDate(-1)}>
+            <Button
+              size="icon-sm"
+              variant="ghost"
+              className="max-lg:size-9"
+              onClick={() => shiftDate(-1)}
+            >
               <ChevronLeft />
             </Button>
             {/* 날짜를 누르면 미니 달력 (모바일에서 좌측 패널 달력 대체) */}
@@ -170,7 +182,12 @@ export function ReservationsView(props: ReservationsViewProps) {
                 />
               </PopoverContent>
             </Popover>
-            <Button size="icon-sm" variant="ghost" onClick={() => shiftDate(1)}>
+            <Button
+              size="icon-sm"
+              variant="ghost"
+              className="max-lg:size-9"
+              onClick={() => shiftDate(1)}
+            >
               <ChevronRight />
             </Button>
             <Button
@@ -182,6 +199,28 @@ export function ReservationsView(props: ReservationsViewProps) {
             </Button>
           </div>
           <div className="flex items-center gap-2">
+            {/* 모바일 전용: 일일 메모 (데스크톱은 좌측 패널에 있음) */}
+            <Popover onOpenChange={(open) => !open && saveMemoIfChanged()}>
+              <PopoverTrigger asChild>
+                <Button size="icon-sm" variant="outline" className="size-9 lg:hidden">
+                  <NotebookPen />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-72" align="end">
+                <div className="space-y-2">
+                  <Label className="text-xs text-muted-foreground">
+                    {props.date.slice(5).replace("-", "/")} 메모
+                  </Label>
+                  <Textarea
+                    rows={5}
+                    value={memo}
+                    onChange={(e) => setMemo(e.target.value)}
+                    onBlur={saveMemoIfChanged}
+                    placeholder="이 날짜의 메모를 남겨보세요"
+                  />
+                </div>
+              </PopoverContent>
+            </Popover>
             <Button
               size="sm"
               className="lg:hidden"

@@ -36,6 +36,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { BulkUpload } from "./bulk-upload";
 import { CustomerForm, type CustomerFormValues } from "./customer-form";
 import type { CustomerWithPets, VisitCounts } from "./page";
 
@@ -92,8 +93,8 @@ export function CustomersView({
 
   return (
     <div className="flex flex-1 flex-col gap-4 overflow-y-auto p-6">
-      <div className="flex items-center justify-between gap-4">
-        <div className="flex flex-1 items-center gap-2">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="flex min-w-0 flex-1 items-center gap-2">
           <div className="relative max-w-sm flex-1">
             <Search className="absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
             <Input
@@ -108,14 +109,17 @@ export function CustomersView({
             검색
           </Button>
         </div>
-        <Button onClick={() => setCreateOpen(true)}>
-          <UserPlus /> 고객 등록
-        </Button>
+        <div className="flex flex-wrap items-center gap-2">
+          <BulkUpload />
+          <Button onClick={() => setCreateOpen(true)}>
+            <UserPlus /> 고객 등록
+          </Button>
+        </div>
       </div>
 
       <p className="text-sm text-muted-foreground">총 {customers.length}명</p>
 
-      <div className="rounded-xl border bg-card">
+      <div className="overflow-x-auto rounded-xl border bg-card">
         <Table>
           <TableHeader>
             <TableRow>
