@@ -60,3 +60,30 @@ export function SettingsNav() {
     </nav>
   );
 }
+
+/** 모바일 전용: 가로 스크롤 칩 탭 (좌측 세로 메뉴 대체) */
+export function SettingsMobileNav() {
+  const pathname = usePathname();
+  const items = GROUPS.flatMap((g) => g.items);
+
+  return (
+    <nav className="-mx-4 overflow-x-auto px-4">
+      <div className="flex w-max gap-2 pb-1">
+        {items.map((item) => (
+          <Link
+            key={item.href}
+            href={item.href}
+            className={cn(
+              "whitespace-nowrap rounded-full border px-3.5 py-2 text-sm transition-colors",
+              pathname.startsWith(item.href)
+                ? "border-primary bg-primary font-medium text-primary-foreground"
+                : "hover:bg-accent"
+            )}
+          >
+            {item.title}
+          </Link>
+        ))}
+      </div>
+    </nav>
+  );
+}
