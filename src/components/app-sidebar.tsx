@@ -61,13 +61,14 @@ export function AppSidebar({
       <SidebarContent>
         <SidebarGroup>
           <SidebarGroupContent>
-            <SidebarMenu>
+            <SidebarMenu className="gap-2">
               {items.map((item) => (
                 <SidebarMenuItem key={item.href}>
                   <SidebarMenuButton
                     asChild
                     isActive={pathname.startsWith(item.href)}
                     tooltip={item.title}
+                    className="h-10"
                   >
                     <Link href={item.href}>
                       <item.icon />
@@ -81,7 +82,7 @@ export function AppSidebar({
         </SidebarGroup>
       </SidebarContent>
       <SidebarFooter>
-        <SidebarMenu>
+        <SidebarMenu className="gap-1.5">
           <SidebarMenuItem>
             <div className="flex items-center gap-2 px-2 py-1 text-sm group-data-[collapsible=icon]:hidden">
               <span>{userEmoji}</span>

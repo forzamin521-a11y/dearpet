@@ -1,11 +1,16 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { useMemo, useOptimistic, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { CalendarPlus, ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import {
   Select,
   SelectContent,
@@ -62,19 +67,31 @@ export function ReservationsView(props: ReservationsViewProps) {
   const [detailTarget, setDetailTarget] = useState<ReservationFull | null>(
     null
   );
+  const [mobileCalOpen, setMobileCalOpen] = useState(false);
+
+  // 날짜/뷰 전환 시 서버 응답을 기다리지 않고 즉시 UI에 반영 (데이터 로딩 동안 그리드는 흐리게)
+  const [navPending, startNavTransition] = useTransition();
+  const [optimistic, setOptimistic] = useOptimistic({
+    date: props.date,
+    view: props.view,
+  });
 
   const selectedDate = useMemo(
-    () => new Date(`${props.date}T00:00:00`),
-    [props.date]
+    () => new Date(`${optimistic.date}T00:00:00`),
+    [optimistic.date]
   );
 
   const navigate = (date: string, view?: string) => {
-    router.push(`/reservations?date=${date}&view=${view ?? props.view}`);
+    const nextView = (view ?? optimistic.view) as "day" | "week";
+    startNavTransition(() => {
+      setOptimistic({ date, view: nextView });
+      router.push(`/reservations?date=${date}&view=${nextView}`);
+    });
   };
 
   const shiftDate = (delta: number) => {
     const d = new Date(selectedDate);
-    d.setDate(d.getDate() + delta * (props.view === "week" ? 7 : 1));
+    d.setDate(d.getDate() + delta * (optimistic.view === "week" ? 7 : 1));
     navigate(toDateString(d));
   };
 
@@ -133,9 +150,26 @@ export function ReservationsView(props: ReservationsViewProps) {
             <Button size="icon-sm" variant="ghost" onClick={() => shiftDate(-1)}>
               <ChevronLeft />
             </Button>
-            <p className="min-w-36 text-center font-semibold">
-              {formatKoreanDate(props.date)}
-            </p>
+            {/* 날짜를 누르면 미니 달력 (모바일에서 좌측 패널 달력 대체) */}
+            <Popover open={mobileCalOpen} onOpenChange={setMobileCalOpen}>
+              <PopoverTrigger asChild>
+                <button className="min-w-36 rounded-md px-1 py-0.5 text-center font-semibold hover:bg-accent">
+                  {formatKoreanDate(optimistic.date)}
+                </button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="center">
+                <Calendar
+                  mode="single"
+                  selected={selectedDate}
+                  onSelect={(d) => {
+                    if (d) {
+                      navigate(toDateString(d));
+                      setMobileCalOpen(false);
+                    }
+                  }}
+                />
+              </PopoverContent>
+            </Popover>
             <Button size="icon-sm" variant="ghost" onClick={() => shiftDate(1)}>
               <ChevronRight />
             </Button>
@@ -163,8 +197,8 @@ export function ReservationsView(props: ReservationsViewProps) {
               <CalendarPlus /> 신규 예약
             </Button>
             <Select
-              value={props.view}
-              onValueChange={(v) => navigate(props.date, v)}
+              value={optimistic.view}
+              onValueChange={(v) => navigate(optimistic.date, v)}
             >
               <SelectTrigger size="sm" className="w-24">
                 <SelectValue />
@@ -177,7 +211,13 @@ export function ReservationsView(props: ReservationsViewProps) {
           </div>
         </div>
 
-        <div className="flex-1 overflow-auto">
+        <div
+          className={
+            navPending
+              ? "flex-1 overflow-auto opacity-50 transition-opacity"
+              : "flex-1 overflow-auto"
+          }
+        >
           {props.view === "day" ? (
             <DayGrid
               date={props.date}
