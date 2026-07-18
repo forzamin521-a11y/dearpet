@@ -32,10 +32,21 @@ export async function saveAlimtalkTemplate(
   const allowed: Record<string, string> = {};
   for (const v of def.shopVars) {
     const value = (variables[v.key] ?? "").trim();
-    if (value.length > 200) {
-      return { ok: false, error: `${v.label}은(는) 200자 이내로 입력해 주세요.` };
+    const maxLen = v.multiline ? 500 : 200;
+    if (value.length > maxLen) {
+      return {
+        ok: false,
+        error: `${v.label}은(는) ${maxLen}자 이내로 입력해 주세요.`,
+      };
     }
     allowed[v.key] = value;
+  }
+  // 발송 대상 (예약금 안내 등)
+  if (def.targetSelectable) {
+    const target = variables.sendTarget;
+    allowed.sendTarget = ["all", "new", "existing"].includes(target)
+      ? target
+      : "all";
   }
 
   const supabase = await createClient();

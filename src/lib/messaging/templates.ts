@@ -18,6 +18,8 @@ export interface ShopVarDef {
   placeholder: string;
   /** 매장이 값을 저장하지 않았을 때 사용되는 기본값 */
   defaultValue: string;
+  /** 여러 줄 입력 (Textarea) */
+  multiline?: boolean;
 }
 
 export interface AlimtalkTemplateDef {
@@ -28,7 +30,16 @@ export interface AlimtalkTemplateDef {
   shopVars: ShopVarDef[];
   /** 시스템이 자동으로 채우는 변수 (설명용) */
   autoVars: string[];
+  /** 발송 대상(전체/신규 고객만/기존 고객만) 선택 가능 여부 — variables.sendTarget에 저장 */
+  targetSelectable?: boolean;
 }
+
+/** targetSelectable 템플릿의 발송 대상 값 (variables.sendTarget) */
+export const SEND_TARGET_LABEL: Record<string, string> = {
+  all: "모든 고객",
+  new: "신규 고객만 (첫 예약)",
+  existing: "기존 고객만",
+};
 
 const EXTRA_INFO = (defaultValue: string): ShopVarDef => ({
   key: "extraInfo",
@@ -72,6 +83,37 @@ export const ALIMTALK_TEMPLATES: Record<AlimtalkKind, AlimtalkTemplateDef> = {
     shopVars: [EXTRA_INFO("")],
     autoVars: ["shopName", "visitDateTime", "petNames"],
   },
+  deposit: {
+    kind: "deposit",
+    body: "고객님,\n∘{{shopName}}∘ 입니다.\n\n[예약금] 안내드립니다.\n\n▷일시: {{visitDateTime}}\n▷반려동물명: {{petNames}}\n▷매장번호: {{shopPhone}}\n\n[예약금 안내]\n계좌번호: {{bankAccount}}\n예약금: {{depositAmount}}\n\n{{depositPolicy}}\n\n{{extraInfo}}",
+    shopVars: [
+      {
+        key: "bankAccount",
+        label: "계좌번호",
+        placeholder: "예: 농협 000-0000-0000-00 홍길동",
+        defaultValue: "",
+      },
+      {
+        key: "depositAmount",
+        label: "예약금",
+        placeholder: "예: 20,000원",
+        defaultValue: "20,000원",
+      },
+      {
+        key: "depositPolicy",
+        label: "예약금 정책 안내",
+        placeholder: "환불·입금 정책을 줄바꿈으로 입력하세요.",
+        defaultValue:
+          "* 상담 후 30분 이내 입금주셔야 예약이 확정됩니다.\n* 당일 예약 변경, 취소시 예약금 환불이 불가합니다.\n* 예약시간 20분 경과시 자동 취소되며, 예약금 환불이 불가합니다.\n* 미용비 결제는 예약금 차감 후 결제됩니다.",
+        multiline: true,
+      },
+      EXTRA_INFO(
+        "반려견의 건강상태 또는 미용 트라우마가 있으면 미용 전 미리 말씀 부탁드립니다."
+      ),
+    ],
+    autoVars: ["shopName", "shopPhone", "visitDateTime", "petNames"],
+    targetSelectable: true,
+  },
   pre_visit: {
     kind: "pre_visit",
     body: "고객님,\n{{shopName}} 입니다.\n\n내일 예약 안내드립니다.\n\n▷일시: {{visitDateTime}}\n▷반려동물명: {{petNames}}\n\n{{extraInfo}}",
@@ -114,6 +156,7 @@ export const ALIGO_TEMPLATE_CODES: Record<AlimtalkKind, string> = {
   senior: "",
   consent: "",
   confirm: "",
+  deposit: "",
   pre_visit: "",
   change: "",
   cancel: "",

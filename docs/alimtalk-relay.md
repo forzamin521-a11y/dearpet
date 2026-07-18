@@ -136,6 +136,27 @@ curl -X POST https://sportsbox-aligo-proxy.fly.dev/alimtalk \
 #{extraInfo}
 ```
 
+예) `deposit` (예약금 안내 — 계좌번호/예약금/정책은 매장별 변수):
+
+```
+고객님,
+∘#{shopName}∘ 입니다.
+
+[예약금] 안내드립니다.
+
+▷일시: #{visitDateTime}
+▷반려동물명: #{petNames}
+▷매장번호: #{shopPhone}
+
+[예약금 안내]
+계좌번호: #{bankAccount}
+예약금: #{depositAmount}
+
+#{depositPolicy}
+
+#{extraInfo}
+```
+
 승인이 나면 발급된 tpl_code 를 `ALIGO_TEMPLATE_CODES` (templates.ts)에 kind별로 기입한다.
 코드가 비어 있는 kind는 실발송 시 failed 처리된다.
 
@@ -144,7 +165,7 @@ curl -X POST https://sportsbox-aligo-proxy.fly.dev/alimtalk \
 ## 5. 준비 체크리스트
 
 - [ ] 알리고 관리자에서 DearPet용 카카오채널(발신프로필) 추가 → senderkey 확보
-- [ ] 9종 템플릿 검수 등록 → 승인 후 tpl_code를 `ALIGO_TEMPLATE_CODES`에 기입
+- [ ] 10종 템플릿 검수 등록 → 승인 후 tpl_code를 `ALIGO_TEMPLATE_CODES`에 기입
 - [ ] 릴레이에 `/alimtalk` 엔드포인트 추가 (RELAY_TOKEN, ALIGO_USER_ID, ALIGO_API_KEY, ALIGO_SENDER)
 - [ ] `fly machine egress-ip list` 로 static egress IP 확인 → 알리고 발송 서버 IP에 등록
 - [ ] Vercel에 `MESSAGING_PROVIDER=aligo`, `ALIMTALK_RELAY_URL`, `ALIMTALK_RELAY_TOKEN`, `ALIGO_SENDER_KEY` 설정

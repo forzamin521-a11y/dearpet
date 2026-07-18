@@ -20,15 +20,25 @@ import {
 import { ALIMTALK_KIND_LABEL } from "@/lib/constants";
 import {
   ALIMTALK_TEMPLATES,
+  SEND_TARGET_LABEL,
   renderTemplate,
   resolveShopVars,
 } from "@/lib/messaging/templates";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
 import { formatKoreanDate, formatKoreanTime, todayString } from "@/lib/time";
 import type { AlimtalkKind, AlimtalkLog, AlimtalkTemplate } from "@/lib/types";
 
 const SELECT_KINDS: AlimtalkKind[] = ["basic", "senior", "consent"];
 const AUTO_KINDS: AlimtalkKind[] = [
   "confirm",
+  "deposit",
   "pre_visit",
   "change",
   "cancel",
@@ -38,12 +48,27 @@ const AUTO_KINDS: AlimtalkKind[] = [
 
 const AUTO_KIND_DESC: Partial<Record<AlimtalkKind, string>> = {
   confirm: "예약 접수(등록) 시 자동 발송됩니다.",
+  deposit:
+    "예약 접수(등록) 시 자동 발송됩니다. 문구 편집에서 계좌번호·예약금과 발송 대상(모든 고객/신규만/기존만)을 설정하세요.",
   pre_visit: "예약 전날 자동 발송됩니다. (추후 지원)",
   change: "예약이 변경되었을 때 자동 발송됩니다.",
   cancel: "예약이 취소되었을 때 자동 발송됩니다.",
   finishing: "예약 상태를 '마무리'로 변경했을 때 발송됩니다.",
   no_show: "예약 상태를 '노쇼'로 변경했을 때 발송됩니다.",
 };
+
+/** 저장된 variables에서 편집 다이얼로그 초기값 구성 (shopVars + 발송 대상) */
+function buildEditableVars(
+  kind: AlimtalkKind,
+  saved: Record<string, string> | null | undefined
+): Record<string, string> {
+  const def = ALIMTALK_TEMPLATES[kind];
+  const vars = resolveShopVars(def, saved);
+  if (def.targetSelectable) {
+    vars.sendTarget = saved?.sendTarget ?? "all";
+  }
+  return vars;
+}
 
 export function AlimtalkManager({
   templates,
@@ -86,8 +111,7 @@ export function AlimtalkManager({
   };
 
   const toggleEnabled = (kind: AlimtalkKind, enabled: boolean) => {
-    const def = ALIMTALK_TEMPLATES[kind];
-    const vars = resolveShopVars(def, settingByKind.get(kind)?.variables);
+    const vars = buildEditableVars(kind, settingByKind.get(kind)?.variables);
     startTransition(async () => {
       const result = await saveAlimtalkTemplate(kind, vars, enabled);
       if (result.ok) toast.success(enabled ? "사용으로 변경" : "미사용으로 변경");
@@ -212,8 +236,8 @@ export function AlimtalkManager({
       {editTarget && (
         <VariableEditDialog
           kind={editTarget}
-          initialVars={resolveShopVars(
-            ALIMTALK_TEMPLATES[editTarget],
+          initialVars={buildEditableVars(
+            editTarget,
             settingByKind.get(editTarget)?.variables
           )}
           pending={pending}
@@ -288,18 +312,56 @@ function VariableEditDialog({
         </DialogHeader>
         <div className="space-y-4">
           <div className="space-y-2">
+            {def.targetSelectable && (
+              <div className="space-y-1">
+                <Label>발송 대상</Label>
+                <Select
+                  value={vars.sendTarget ?? "all"}
+                  onValueChange={(v) =>
+                    setVars((prev) => ({ ...prev, sendTarget: v }))
+                  }
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {Object.entries(SEND_TARGET_LABEL).map(([value, label]) => (
+                      <SelectItem key={value} value={value}>
+                        {label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">
+                  신규 고객은 이 매장에 이전 예약 이력이 없는(첫 예약) 고객입니다.
+                </p>
+              </div>
+            )}
             {def.shopVars.map((v) => (
               <div key={v.key} className="space-y-1">
                 <Label htmlFor={`var-${v.key}`}>{v.label}</Label>
-                <Input
-                  id={`var-${v.key}`}
-                  value={vars[v.key] ?? ""}
-                  placeholder={v.placeholder}
-                  maxLength={200}
-                  onChange={(e) =>
-                    setVars((prev) => ({ ...prev, [v.key]: e.target.value }))
-                  }
-                />
+                {v.multiline ? (
+                  <Textarea
+                    id={`var-${v.key}`}
+                    rows={5}
+                    value={vars[v.key] ?? ""}
+                    placeholder={v.placeholder}
+                    maxLength={500}
+                    onChange={(e) =>
+                      setVars((prev) => ({ ...prev, [v.key]: e.target.value }))
+                    }
+                  />
+                ) : (
+                  <Input
+                    id={`var-${v.key}`}
+                    value={vars[v.key] ?? ""}
+                    placeholder={v.placeholder}
+                    maxLength={200}
+                    onChange={(e) =>
+                      setVars((prev) => ({ ...prev, [v.key]: e.target.value }))
+                    }
+                  />
+                )}
               </div>
             ))}
           </div>

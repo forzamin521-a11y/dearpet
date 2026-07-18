@@ -31,7 +31,7 @@ export interface AlimtalkContext {
 export async function sendAlimtalk(
   kind: AlimtalkKind,
   ctx: AlimtalkContext,
-  options: { onlyIfEnabled?: boolean } = {}
+  options: { onlyIfEnabled?: boolean; customerIsNew?: boolean } = {}
 ): Promise<void> {
   if (!ctx.phone) return;
 
@@ -45,6 +45,14 @@ export async function sendAlimtalk(
 
   if (options.onlyIfEnabled && !setting?.enabled) return;
 
+  // 발송 대상 필터 (variables.sendTarget: all | new | existing)
+  const savedVars = setting?.variables as Record<string, string> | null;
+  const target = savedVars?.sendTarget;
+  if (options.customerIsNew !== undefined) {
+    if (target === "new" && !options.customerIsNew) return;
+    if (target === "existing" && options.customerIsNew) return;
+  }
+
   const def = ALIMTALK_TEMPLATES[kind];
   const content = renderTemplate(def.body, {
     shopName: ctx.shop.name,
@@ -53,7 +61,7 @@ export async function sendAlimtalk(
     petNames: ctx.petNames.join(", "),
     visitDateTime: `${formatKoreanDate(ctx.date)} ${formatKoreanTime(ctx.startTime)}`,
     consentLink: ctx.consentLink ?? "",
-    ...resolveShopVars(def, setting?.variables as Record<string, string> | null),
+    ...resolveShopVars(def, savedVars),
   });
 
   const provider = getMessageProvider();

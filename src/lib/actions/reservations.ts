@@ -152,6 +152,19 @@ export async function createReservation(
         await sendAlimtalk(kind, alimtalkCtx);
       }
     }
+
+    // 예약금 안내 (설정에서 사용 시 자동 발송, 신규/기존 고객 대상 필터 적용)
+    const { count: priorCount } = await supabase
+      .from("reservations")
+      .select("id", { count: "exact", head: true })
+      .eq("shop_id", ctx.shop!.id)
+      .eq("customer_id", input.customerId)
+      .neq("id", reservation.id)
+      .neq("status", "deleted");
+    await sendAlimtalk("deposit", alimtalkCtx, {
+      onlyIfEnabled: true,
+      customerIsNew: (priorCount ?? 0) === 0,
+    });
   }
 
   revalidatePath("/reservations");

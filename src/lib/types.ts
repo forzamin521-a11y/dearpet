@@ -14,6 +14,7 @@ export type AlimtalkKind =
   | "senior"
   | "consent"
   | "confirm"
+  | "deposit"
   | "pre_visit"
   | "change"
   | "cancel"

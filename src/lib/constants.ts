@@ -60,6 +60,7 @@ export const ALIMTALK_KIND_LABEL: Record<AlimtalkKind, string> = {
   senior: "노령견 안내",
   consent: "동의서 작성 안내",
   confirm: "예약 접수 안내",
+  deposit: "예약금 안내",
   pre_visit: "예약 사전 안내",
   change: "예약 변경 안내",
   cancel: "예약 취소 안내",

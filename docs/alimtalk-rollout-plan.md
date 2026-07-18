@@ -34,18 +34,23 @@ DearPet (Vercel) ──Bearer 토큰──▶ sportsbox-aligo-proxy (Fly.io, 고
 - [ ] [알리고](https://smartsms.aligo.in) → 카카오 알림톡 → 발신프로필 등록 (@채널ID + 관리자 휴대폰 인증)
 - [ ] 발급된 **senderkey**를 `.env.local`과 Vercel의 `ALIGO_SENDER_KEY`에 기입
 
-### 3. 템플릿 9종 검수 등록 (심사 1~3영업일)
+### 3. 템플릿 10종 검수 등록 (심사 1~3영업일)
 
 - [ ] 알리고 → 템플릿 관리 → 등록. 본문은 `templates.ts`의 body와 글자 단위 일치,
       `{{변수}}`는 `#{변수}`로 변환해 제출 (완성본은 alimtalk-relay.md 참고)
 - [ ] `consent` 템플릿의 `#{consentLink}` 변수 링크가 반려되면 → 웹링크 버튼 방식으로 코드 수정 필요 (Claude에게 요청)
-- [ ] 승인된 **tpl_code 9개**를 `src/lib/messaging/templates.ts`의 `ALIGO_TEMPLATE_CODES`에 기입 (Claude에게 요청)
+- [ ] 승인된 **tpl_code 10개**를 `src/lib/messaging/templates.ts`의 `ALIGO_TEMPLATE_CODES`에 기입 (Claude에게 요청)
+- [ ] 예약금 안내(deposit) 사용 시: 설정 → 알림톡 → 예약금 안내 문구 편집에서 계좌번호·예약금 입력 + Supabase에 00003/00004 마이그레이션 적용
 
 ### 4. Vercel 환경변수 + 실발송 오픈
 
-- [ ] Vercel → dearpet → Settings → Environment Variables:
-      `ALIMTALK_RELAY_URL`, `ALIMTALK_RELAY_TOKEN`, `ALIGO_SENDER_KEY` 입력
-- [ ] 마지막에 `MESSAGING_PROVIDER=aligo` 추가 → **Redeploy** (환경변수는 재배포해야 반영)
+- [x] Vercel 프로젝트 생성·프로덕션 배포 완료 (2026-07-16): https://dearpet.vercel.app
+      (dailydams 계정, 환경변수 8종 등록 — RELAY_URL/TOKEN, MESSAGING_PROVIDER=fake 포함)
+- [ ] GitHub 자동 배포 연결: Vercel 대시보드 → dearpet → Settings → Git에서
+      forzamin521-a11y/dearpet 연결 (권한 문제로 CLI 연결 실패, 그 전까지는 `vercel deploy --prod`로 수동 배포)
+- [ ] Supabase → Auth → URL Configuration에 https://dearpet.vercel.app 등록 (Site URL/Redirect)
+- [ ] senderkey 발급 후 `vercel env add ALIGO_SENDER_KEY production` 추가
+- [ ] 마지막에 `MESSAGING_PROVIDER`를 `aligo`로 변경 → **Redeploy** (환경변수는 재배포해야 반영)
 - [ ] 본인 번호로 예약 생성 → 알림톡 실수신 + `alimtalk_logs` status=sent 확인
 
 ## 이후 개선 후보 (오픈 후)
