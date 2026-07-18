@@ -2,13 +2,16 @@
 
 import { useMemo, useRef, useState, useTransition } from "react";
 import { toast } from "sonner";
-import { Minus, Plus, X } from "lucide-react";
+import { History, Minus, Plus, X } from "lucide-react";
 import { searchCustomers } from "@/lib/actions/customers";
 import { BreedInput } from "@/components/breed-input";
 import {
   createReservation,
   createReservationWithNewCustomer,
+  getCustomerGroomingHistory,
   updateReservation,
+  type CustomerHistoryEntry,
+  type HistoryServiceItem,
 } from "@/lib/actions/reservations";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -34,12 +37,14 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent } from "@/components/ui/card";
 import {
   ALIMTALK_KIND_LABEL,
+  RESERVATION_STATUS,
   SELECTABLE_ALIMTALK,
   SENIOR_PET_AGE,
   SLOT_MINUTES,
 } from "@/lib/constants";
 import {
   ageInYears,
+  formatKoreanDate,
   minutesToTime,
   formatKoreanTime,
   timeToMinutes,
@@ -136,6 +141,11 @@ export function ReservationModal({
       : []
   );
   const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // 최근 미용 이력
+  const [history, setHistory] = useState<CustomerHistoryEntry[] | null>(null);
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [historyPending, startHistoryTransition] = useTransition();
 
   // 신규 고객
   const [newName, setNewName] = useState("");
@@ -244,6 +254,8 @@ export function ReservationModal({
     setCustomer(c);
     setResults([]);
     setQuery("");
+    setHistory(null);
+    setHistoryOpen(false);
     const selections = c.pets.map((pet, i) => ({
       pet,
       selected: i === 0,
@@ -253,6 +265,51 @@ export function ReservationModal({
     setPetSelections(selections);
     maybeAutoSenior(selections);
     autoEnd(startTime, selections, newPets);
+  };
+
+  const toggleHistory = () => {
+    if (historyOpen) {
+      setHistoryOpen(false);
+      return;
+    }
+    if (history) {
+      setHistoryOpen(true);
+      return;
+    }
+    if (!customer) return;
+    startHistoryTransition(async () => {
+      const data = await getCustomerGroomingHistory(customer.id);
+      setHistory(data);
+      setHistoryOpen(true);
+    });
+  };
+
+  /** 이력의 서비스를 이번 예약에 그대로 적용 */
+  const applyHistoryItem = (item: HistoryServiceItem) => {
+    const idx = petSelections.findIndex((s) => s.pet.id === item.petId);
+    if (idx < 0) {
+      toast.error("현재 고객의 반려동물 목록에 없는 기록입니다.");
+      return;
+    }
+    const optionValid = !!item.optionId && optionById.has(item.optionId);
+    const next = petSelections.map((s, j) =>
+      j === idx
+        ? {
+            ...s,
+            selected: true,
+            optionId: optionValid ? item.optionId : s.optionId,
+            addons: item.addons,
+          }
+        : s
+    );
+    setPetSelections(next);
+    maybeAutoSenior(next);
+    autoEnd(startTime, next, newPets);
+    toast.success(
+      optionValid
+        ? `${item.petName}에게 이전 서비스를 적용했습니다.`
+        : `${item.petName}을(를) 선택했습니다. (당시 상품이 삭제되어 서비스는 직접 선택해 주세요)`
+    );
   };
 
   // 시간 겹침 경고 (같은 날짜 + 같은 담당자)
@@ -404,33 +461,119 @@ export function ReservationModal({
 
             {mode === "existing" ? (
               customer ? (
-                <Card>
-                  <CardContent className="flex items-start justify-between pt-4">
-                    <div>
-                      <p className="font-semibold">{customer.name}</p>
-                      <p className="text-sm text-muted-foreground">
-                        {customer.phones?.[0] ?? "전화번호 없음"}
-                      </p>
-                      {customer.memo && (
-                        <p className="mt-1 text-xs text-muted-foreground">
-                          📝 {customer.memo}
+                <>
+                  <Card>
+                    <CardContent className="flex items-start justify-between pt-4">
+                      <div>
+                        <p className="font-semibold">{customer.name}</p>
+                        <p className="text-sm text-muted-foreground">
+                          {customer.phones?.[0] ?? "전화번호 없음"}
+                        </p>
+                        {customer.memo && (
+                          <p className="mt-1 text-xs text-muted-foreground">
+                            📝 {customer.memo}
+                          </p>
+                        )}
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="mt-1 -ml-2 h-7 px-2 text-xs text-primary"
+                          disabled={historyPending}
+                          onClick={toggleHistory}
+                        >
+                          <History className="size-3.5" />
+                          {historyPending
+                            ? "불러오는 중..."
+                            : historyOpen
+                              ? "최근 기록 접기"
+                              : "최근 기록 보기"}
+                        </Button>
+                      </div>
+                      {!editing && (
+                        <Button
+                          size="icon-sm"
+                          variant="ghost"
+                          onClick={() => {
+                            setCustomer(null);
+                            setPetSelections([]);
+                            setHistory(null);
+                            setHistoryOpen(false);
+                          }}
+                        >
+                          <X />
+                        </Button>
+                      )}
+                    </CardContent>
+                  </Card>
+
+                  {/* 최근 미용 이력 */}
+                  {historyOpen && (
+                    <div className="max-h-64 space-y-2 overflow-y-auto rounded-lg border p-2">
+                      {(history ?? []).length === 0 && (
+                        <p className="py-3 text-center text-xs text-muted-foreground">
+                          지난 예약 이력이 없습니다.
                         </p>
                       )}
+                      {(history ?? [])
+                        .filter((entry) => entry.reservationId !== editing?.id)
+                        .map((entry) => {
+                          const status =
+                            RESERVATION_STATUS[
+                              entry.status as keyof typeof RESERVATION_STATUS
+                            ];
+                          return (
+                            <div
+                              key={entry.reservationId}
+                              className="space-y-1.5 rounded-md bg-muted/50 p-2 text-xs"
+                            >
+                              <div className="flex items-center gap-1.5">
+                                <span className="font-semibold">
+                                  {formatKoreanDate(entry.date)}
+                                </span>
+                                {status && (
+                                  <span
+                                    className={`rounded px-1.5 py-0.5 text-[10px] font-medium ${status.bg} ${status.text}`}
+                                  >
+                                    {status.label}
+                                  </span>
+                                )}
+                              </div>
+                              {entry.memo && (
+                                <p className="text-muted-foreground">
+                                  📝 {entry.memo}
+                                </p>
+                              )}
+                              {entry.items.map((item, i) => (
+                                <div
+                                  key={i}
+                                  className="flex items-center justify-between gap-2"
+                                >
+                                  <span className="min-w-0 truncate">
+                                    🐾 {item.petName} ·{" "}
+                                    {item.serviceLabel ?? "서비스 미지정"}
+                                    {item.addons.length > 0 &&
+                                      ` +${item.addons.map((a) => a.name).join(", ")}`}
+                                    {item.price != null &&
+                                      ` · ${item.price.toLocaleString()}원`}
+                                  </span>
+                                  {!editing && (
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      className="h-6 shrink-0 px-2 text-[11px]"
+                                      onClick={() => applyHistoryItem(item)}
+                                    >
+                                      이 서비스로 등록
+                                    </Button>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                          );
+                        })}
                     </div>
-                    {!editing && (
-                      <Button
-                        size="icon-sm"
-                        variant="ghost"
-                        onClick={() => {
-                          setCustomer(null);
-                          setPetSelections([]);
-                        }}
-                      >
-                        <X />
-                      </Button>
-                    )}
-                  </CardContent>
-                </Card>
+                  )}
+                </>
               ) : (
                 <div className="relative">
                   <Input

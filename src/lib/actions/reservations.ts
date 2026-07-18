@@ -244,6 +244,85 @@ export async function createReservationWithNewCustomer(
   });
 }
 
+// ---------------- 고객 미용 이력 ----------------
+
+export interface HistoryServiceItem {
+  petId: string | null;
+  petName: string;
+  optionId: string | null;
+  /** 예: "🐶전체미용 · 소형견" */
+  serviceLabel: string | null;
+  price: number | null;
+  addons: AddonItem[];
+}
+
+export interface CustomerHistoryEntry {
+  reservationId: string;
+  date: string;
+  status: string;
+  memo: string;
+  items: HistoryServiceItem[];
+}
+
+/** 예약 모달 "최근 기록 보기" — 고객의 지난 예약(서비스/메모) 최근 10건 */
+export async function getCustomerGroomingHistory(
+  customerId: string
+): Promise<CustomerHistoryEntry[]> {
+  const ctx = await requireShop();
+  if (!ctx) return [];
+
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("reservations")
+    .select(
+      `id, date, status, memo,
+       reservation_pets(pet_id, product_option_id, price, addons,
+         pet:pets(name),
+         option:product_options(name, product:grooming_products(name, emoji)))`
+    )
+    .eq("shop_id", ctx.shop!.id)
+    .eq("customer_id", customerId)
+    .neq("status", "deleted")
+    .order("date", { ascending: false })
+    .order("start_time", { ascending: false })
+    .limit(10);
+
+  type Row = {
+    id: string;
+    date: string;
+    status: string;
+    memo: string;
+    reservation_pets: Array<{
+      pet_id: string | null;
+      product_option_id: string | null;
+      price: number | null;
+      addons: AddonItem[] | null;
+      pet: { name: string } | null;
+      option: {
+        name: string;
+        product: { name: string; emoji: string } | null;
+      } | null;
+    }>;
+  };
+
+  return ((data ?? []) as unknown as Row[]).map((r) => ({
+    reservationId: r.id,
+    date: r.date,
+    status: r.status,
+    memo: r.memo,
+    items: (r.reservation_pets ?? []).map((rp) => ({
+      petId: rp.pet_id,
+      petName: rp.pet?.name ?? "(삭제된 반려동물)",
+      optionId: rp.product_option_id,
+      serviceLabel: rp.option
+        ? `${rp.option.product?.emoji ?? ""}${rp.option.product?.name ?? ""} · ${rp.option.name}`
+        : null,
+      price: rp.price,
+      addons: rp.addons ?? [],
+    })),
+  }));
+}
+
 /** 동의서 제출 건 생성 후 서명 링크 반환 */
 async function createConsentSubmission(
   shopId: string,
