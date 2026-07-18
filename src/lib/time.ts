@@ -41,6 +41,17 @@ export function todayString(): string {
   return toDateString(new Date());
 }
 
+/**
+ * 한국시간(KST) 기준 날짜 "YYYY-MM-DD".
+ * Vercel 등 UTC 서버에서 크론이 돌 때 시간대가 밀리지 않도록 사용한다.
+ * @param offsetDays 0 = 오늘, 1 = 내일
+ */
+export function kstDateString(offsetDays = 0): string {
+  const kst = new Date(Date.now() + 9 * 60 * 60 * 1000);
+  kst.setUTCDate(kst.getUTCDate() + offsetDays);
+  return kst.toISOString().slice(0, 10);
+}
+
 /** 생년월일 → 만 나이(년) */
 export function ageInYears(birthDate: string): number {
   const birth = new Date(`${birthDate}T00:00:00`);

@@ -57,7 +57,9 @@ DearPet (Vercel) ──Bearer 토큰──▶ sportsbox-aligo-proxy (Fly.io, 고
 
 - [ ] 릴레이에 senderkey 화이트리스트 추가 (`ALLOWED_SENDER_KEYS`) — 공용 발송기 오남용 방지
 - [ ] 알리고 잔액 부족 알림 설정 (A·B가 충전금액 공유 — B 오발송 시 A까지 잔액 부족 위험)
-- [ ] `pre_visit`(예약 전날 안내) 자동 발송 스케줄러 구현 — 현재 "추후 지원" 상태
+- [x] `pre_visit`(예약 전날 안내) 자동 발송 스케줄러 구현 (2026-07-18):
+      Vercel Cron이 매일 09:00 UTC(한국 오후 6시)에 `/api/cron/pre-visit` 호출,
+      CRON_SECRET 인증 + 발송 이력 기반 중복 방지
 - [ ] 알림톡 실패 시 문자 대체발송(failover) 도입 검토 — 건당 8.4원 추가, 초기엔 불필요
 - [ ] 월 발송량 5천 건 이상으로 성장 시 단가·구조 재검토 (현재 알리고 6.5원/건)
 
