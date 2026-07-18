@@ -108,6 +108,7 @@ export function CustomerDetailDialog({
   onClose: () => void;
 }) {
   const [detail, setDetail] = useState<CustomerDetail | null>(null);
+  const [viewSignature, setViewSignature] = useState<string | null>(null);
 
   useEffect(() => {
     let alive = true;
@@ -132,6 +133,7 @@ export function CustomerDetailDialog({
               <TabsTrigger value="summary">요약</TabsTrigger>
               <TabsTrigger value="info">고객 정보</TabsTrigger>
               <TabsTrigger value="alimtalk">알림톡</TabsTrigger>
+              <TabsTrigger value="consent">동의서</TabsTrigger>
             </TabsList>
           </div>
 
@@ -148,7 +150,9 @@ export function CustomerDetailDialog({
                   <dl className="space-y-1.5 text-sm">
                     <div className="flex gap-3">
                       <dt className="w-16 shrink-0 text-muted-foreground">호칭</dt>
-                      <dd className="font-medium">{customer.name}</dd>
+                      <dd className="font-medium">
+                        {customer.name || "(호칭 없음)"}
+                      </dd>
                     </div>
                     <div className="flex gap-3">
                       <dt className="w-16 shrink-0 text-muted-foreground">연락처</dt>
@@ -375,7 +379,111 @@ export function CustomerDetailDialog({
               </Table>
             </div>
           </TabsContent>
+
+          {/* ---------------- 동의서 ---------------- */}
+          <TabsContent
+            value="consent"
+            className="min-h-0 flex-1 overflow-y-auto p-4"
+          >
+            <div className="rounded-lg border">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>발송 일시</TableHead>
+                    <TableHead>동의서</TableHead>
+                    <TableHead>상태</TableHead>
+                    <TableHead>서명자</TableHead>
+                    <TableHead>서명 일시</TableHead>
+                    <TableHead>서명</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {(detail?.consents ?? []).length === 0 && (
+                    <TableRow>
+                      <TableCell
+                        colSpan={6}
+                        className="py-8 text-center text-muted-foreground"
+                      >
+                        {detail
+                          ? "동의서 발송 이력이 없습니다."
+                          : "불러오는 중..."}
+                      </TableCell>
+                    </TableRow>
+                  )}
+                  {(detail?.consents ?? []).map((c) => (
+                    <TableRow key={c.id}>
+                      <TableCell className="whitespace-nowrap align-top">
+                        {new Date(c.createdAt).toLocaleString("ko-KR", {
+                          dateStyle: "short",
+                          timeStyle: "short",
+                        })}
+                      </TableCell>
+                      <TableCell className="align-top">{c.formTitle}</TableCell>
+                      <TableCell className="whitespace-nowrap align-top">
+                        <span
+                          className={`rounded px-1.5 py-0.5 text-[11px] font-medium ${
+                            c.status === "signed"
+                              ? "bg-green-100 text-green-800"
+                              : "bg-orange-100 text-orange-700"
+                          }`}
+                        >
+                          {c.status === "signed" ? "작성 완료" : "작성 대기"}
+                        </span>
+                      </TableCell>
+                      <TableCell className="whitespace-nowrap align-top">
+                        {c.signerName ?? "-"}
+                      </TableCell>
+                      <TableCell className="whitespace-nowrap align-top">
+                        {c.signedAt
+                          ? new Date(c.signedAt).toLocaleString("ko-KR", {
+                              dateStyle: "short",
+                              timeStyle: "short",
+                            })
+                          : "-"}
+                      </TableCell>
+                      <TableCell className="align-top">
+                        {c.signatureUrl ? (
+                          <button
+                            type="button"
+                            onClick={() => setViewSignature(c.signatureUrl)}
+                            title="크게 보기"
+                          >
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img
+                              src={c.signatureUrl}
+                              alt="서명"
+                              className="h-10 rounded border bg-white"
+                            />
+                          </button>
+                        ) : (
+                          "-"
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          </TabsContent>
         </Tabs>
+
+        {/* 서명 이미지 크게 보기 */}
+        <Dialog
+          open={!!viewSignature}
+          onOpenChange={(open) => !open && setViewSignature(null)}
+        >
+          <DialogContent className="sm:max-w-md">
+            <DialogTitle>서명</DialogTitle>
+            {viewSignature && (
+              /* eslint-disable-next-line @next/next/no-img-element */
+              <img
+                src={viewSignature}
+                alt="고객 서명"
+                className="w-full rounded-lg border bg-white"
+              />
+            )}
+          </DialogContent>
+        </Dialog>
       </DialogContent>
     </Dialog>
   );

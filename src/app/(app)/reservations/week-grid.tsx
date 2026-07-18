@@ -63,7 +63,7 @@ export function WeekGrid({
       >
         <p className="truncate font-medium">
           {formatKoreanTime(String(reservation.start_time).slice(0, 5))}{" "}
-          {reservation.customer?.name}
+          {reservation.customer?.name || "고객"}
           {reservation.staff_id
             ? ` ${staffEmoji.get(reservation.staff_id) ?? ""}`
             : ""}

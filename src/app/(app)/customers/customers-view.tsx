@@ -169,7 +169,7 @@ export function CustomersView({
                       )}
                     </div>
                   </TableCell>
-                  <TableCell>{customer.name}</TableCell>
+                  <TableCell>{customer.name || "(호칭 없음)"}</TableCell>
                   <TableCell className="text-muted-foreground">
                     {customer.phones[0] ?? "-"}
                   </TableCell>

@@ -207,7 +207,7 @@ function ReservationBox({
       )}
       {fields.customerName && (
         <p className="truncate font-semibold">
-          {reservation.customer?.name ?? "고객"}
+          {reservation.customer?.name || "고객"}
         </p>
       )}
       {fields.time && (

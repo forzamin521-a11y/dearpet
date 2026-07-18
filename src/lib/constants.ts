@@ -68,8 +68,11 @@ export const ALIMTALK_KIND_LABEL: Record<AlimtalkKind, string> = {
   no_show: "노쇼 안내",
 };
 
-/** 예약 모달에서 선택 발송할 수 있는 알림톡 3종 */
-export const SELECTABLE_ALIMTALK: AlimtalkKind[] = ["basic", "senior", "consent"];
+/**
+ * 예약 모달 ④에서 선택 발송할 수 있는 안내 알림톡.
+ * 동의서(노령견 포함)는 ⑤에서 선택하고, 기본/예약금 안내는 둘 중 하나만 발송한다.
+ */
+export const SELECTABLE_ALIMTALK: AlimtalkKind[] = ["basic", "deposit"];
 
 /** 상태 변경 시 자동 발송되는 알림톡 매핑 */
 export const STATUS_ALIMTALK: Partial<Record<ReservationStatus, AlimtalkKind>> = {
@@ -94,3 +97,23 @@ export const SENIOR_PET_AGE = 7;
 export const SLOT_MINUTES = 30;
 
 export const STAFF_EMOJIS = ["💜", "💛", "💙", "💚", "🧡", "❤️", "🤍", "🩷"];
+
+/** 미용 서비스 등록 시 선택할 수 있는 이모지 목록 */
+export const SERVICE_EMOJIS = [
+  "🛁",
+  "🫧",
+  "🚿",
+  "🧼",
+  "✂️",
+  "💈",
+  "🐶",
+  "🐩",
+  "🐱",
+  "🐾",
+  "😊",
+  "🎀",
+  "💅",
+  "✨",
+  "🌸",
+  "🦴",
+];

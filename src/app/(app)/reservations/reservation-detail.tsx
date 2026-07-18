@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
-import { Pencil, Receipt } from "lucide-react";
+import { Link2, Pencil, Receipt } from "lucide-react";
 import {
   registerSaleForReservation,
   updateReservationStatus,
@@ -223,7 +223,9 @@ export function ReservationDetail({
           <section className="space-y-2">
             <p className="text-sm font-semibold">보호자 정보</p>
             <div className="space-y-1 text-sm">
-              <p className="font-medium">{reservation.customer?.name}</p>
+              <p className="font-medium">
+                {reservation.customer?.name || "(호칭 없음)"}
+              </p>
               {(reservation.customer?.phones ?? []).map((phone) => (
                 <p key={phone} className="text-muted-foreground">
                   {phone}
@@ -279,6 +281,19 @@ export function ReservationDetail({
               </div>
             ))}
           </section>
+
+          {/* 동의서 */}
+          {reservation.consent_submissions.length > 0 && (
+            <>
+              <Separator />
+              <section className="space-y-2">
+                <p className="text-sm font-semibold">동의서</p>
+                {reservation.consent_submissions.map((cs) => (
+                  <ConsentSubmissionCard key={cs.id} submission={cs} />
+                ))}
+              </section>
+            </>
+          )}
 
           {reservation.memo && (
             <>
@@ -370,6 +385,87 @@ export function ReservationDetail({
         </AlertDialogContent>
       </AlertDialog>
     </Sheet>
+  );
+}
+
+/** 예약 상세의 동의서 1건: 상태 배지 + 서명 이미지 + 대기 중이면 링크 복사 */
+function ConsentSubmissionCard({
+  submission,
+}: {
+  submission: ReservationFull["consent_submissions"][number];
+}) {
+  const [showSignature, setShowSignature] = useState(false);
+  const signed = submission.status === "signed";
+
+  const copyLink = async () => {
+    const link = `${window.location.origin}/consent/${submission.token}`;
+    try {
+      await navigator.clipboard.writeText(link);
+      toast.success("서명 링크가 복사되었습니다.");
+    } catch {
+      toast.error("링크 복사에 실패했습니다.");
+    }
+  };
+
+  return (
+    <div className="space-y-2 rounded-lg border p-3 text-sm">
+      <div className="flex items-center gap-2">
+        <span className="min-w-0 flex-1 truncate font-medium">
+          📋 {submission.form?.title ?? "동의서"}
+        </span>
+        <span
+          className={cn(
+            "shrink-0 rounded px-1.5 py-0.5 text-[11px] font-medium",
+            signed
+              ? "bg-green-100 text-green-800"
+              : "bg-orange-100 text-orange-700"
+          )}
+        >
+          {signed ? "작성 완료" : "작성 대기"}
+        </span>
+      </div>
+      {signed ? (
+        <>
+          <p className="text-xs text-muted-foreground">
+            {submission.signer_name}님 서명 ·{" "}
+            {submission.signed_at &&
+              new Date(submission.signed_at).toLocaleString("ko-KR", {
+                dateStyle: "short",
+                timeStyle: "short",
+              })}
+          </p>
+          {submission.signature_url && (
+            <>
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-7 text-xs"
+                onClick={() => setShowSignature((v) => !v)}
+              >
+                {showSignature ? "서명 접기" : "서명 보기"}
+              </Button>
+              {showSignature && (
+                /* eslint-disable-next-line @next/next/no-img-element */
+                <img
+                  src={submission.signature_url}
+                  alt="고객 서명"
+                  className="max-h-28 rounded-md border bg-white"
+                />
+              )}
+            </>
+          )}
+        </>
+      ) : (
+        <Button
+          size="sm"
+          variant="outline"
+          className="h-7 text-xs"
+          onClick={copyLink}
+        >
+          <Link2 className="size-3.5" /> 서명 링크 복사
+        </Button>
+      )}
+    </div>
   );
 }
 

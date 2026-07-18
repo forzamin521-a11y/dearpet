@@ -81,7 +81,7 @@ export function CustomerForm({
       <div className="space-y-4">
         <p className="text-sm font-semibold text-primary">① 보호자 정보</p>
         <div className="space-y-2">
-          <Label>보호자 호칭 *</Label>
+          <Label>보호자 호칭</Label>
           <Input
             value={name}
             onChange={(e) => setName(e.target.value)}
@@ -256,7 +256,12 @@ export function CustomerForm({
 
       <Button
         className="w-full"
-        disabled={!name.trim() || pending}
+        disabled={
+          pending ||
+          (!name.trim() &&
+            !phones.some((p) => p.trim()) &&
+            !pets.some((p) => p.name.trim()))
+        }
         onClick={() =>
           onSubmit({
             customer: {

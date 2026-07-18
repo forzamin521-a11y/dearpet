@@ -16,6 +16,16 @@ export interface ReservationFull extends Reservation {
   > | null;
   /** 연결된 매출 (완료 후 매출 등록 여부 판단용) */
   sales: Array<{ id: string }>;
+  /** 발송된 동의서 (작성 대기/완료 표시용) */
+  consent_submissions: Array<{
+    id: string;
+    status: string; // pending | signed
+    token: string;
+    signer_name: string | null;
+    signature_url: string | null;
+    signed_at: string | null;
+    form: { title: string } | null;
+  }>;
   reservation_pets: Array<{
     id: string;
     pet_id: string;
@@ -45,6 +55,8 @@ const RESERVATION_SELECT = `
   *,
   customer:customers(id, name, phones, memo, alimtalk_opt_in),
   sales(id),
+  consent_submissions(id, status, token, signer_name, signature_url, signed_at,
+    form:consent_forms(title)),
   reservation_pets(
     id, pet_id, product_option_id, service_id, price, addons,
     pet:pets(*),

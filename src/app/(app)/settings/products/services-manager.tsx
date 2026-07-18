@@ -30,6 +30,8 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { SERVICE_EMOJIS } from "@/lib/constants";
+import { cn } from "@/lib/utils";
 import type { Service } from "@/lib/types";
 
 function formatDuration(minutes: number) {
@@ -190,22 +192,32 @@ function ServiceDialog({
           <DialogTitle>{editing ? "서비스 수정" : "서비스 추가"}</DialogTitle>
         </DialogHeader>
         <div className="space-y-3">
-          <div className="flex gap-2">
-            <div className="w-20 space-y-1">
-              <Label className="text-xs">이모지</Label>
-              <Input
-                value={emoji}
-                onChange={(e) => setEmoji(e.target.value)}
-                placeholder="🐶"
-              />
-            </div>
-            <div className="flex-1 space-y-1">
-              <Label className="text-xs">서비스명 *</Label>
-              <Input
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="예: 전체미용"
-              />
+          <div className="space-y-1">
+            <Label className="text-xs">서비스명 *</Label>
+            <Input
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="예: 전체미용"
+            />
+          </div>
+          <div className="space-y-1">
+            <Label className="text-xs">이모지 (한 번 더 누르면 해제)</Label>
+            <div className="grid grid-cols-8 gap-1">
+              {SERVICE_EMOJIS.map((e) => (
+                <button
+                  key={e}
+                  type="button"
+                  onClick={() => setEmoji((prev) => (prev === e ? "" : e))}
+                  className={cn(
+                    "rounded-md border py-1.5 text-lg transition-colors hover:bg-accent",
+                    emoji === e
+                      ? "border-primary bg-primary/10"
+                      : "border-transparent bg-secondary"
+                  )}
+                >
+                  {e}
+                </button>
+              ))}
             </div>
           </div>
           <div className="space-y-1">

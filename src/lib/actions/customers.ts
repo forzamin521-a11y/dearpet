@@ -37,7 +37,16 @@ export async function createCustomer(
 ): Promise<ActionResult & { customerId?: string }> {
   const ctx = await requireShop();
   if (!ctx) return { ok: false, error: "로그인이 필요합니다." };
-  if (!input.name.trim()) return { ok: false, error: "보호자 호칭을 입력해 주세요." };
+  const hasAnyInfo =
+    input.name.trim() ||
+    input.phones.some((p) => p.trim()) ||
+    pets.some((p) => p.name.trim());
+  if (!hasAnyInfo) {
+    return {
+      ok: false,
+      error: "보호자 호칭, 전화번호, 반려동물 중 하나는 입력해 주세요.",
+    };
+  }
 
   const supabase = await createClient();
   const { data: customer, error } = await supabase
@@ -194,25 +203,42 @@ export interface CustomerDetailAlimtalk {
   status: string;
 }
 
+export interface CustomerDetailConsent {
+  id: string;
+  createdAt: string;
+  formTitle: string;
+  status: string; // pending | signed
+  signerName: string | null;
+  signatureUrl: string | null;
+  signedAt: string | null;
+}
+
 export interface CustomerDetail {
   upcoming: CustomerDetailReservation[];
   past: CustomerDetailReservation[];
   sales: CustomerDetailSale[];
   alimtalkLogs: CustomerDetailAlimtalk[];
+  consents: CustomerDetailConsent[];
 }
 
 /** 고객 상세 모달용: 보유/과거 예약, 매출, 알림톡 발송 이력 */
 export async function getCustomerDetail(
   customerId: string
 ): Promise<CustomerDetail> {
-  const empty: CustomerDetail = { upcoming: [], past: [], sales: [], alimtalkLogs: [] };
+  const empty: CustomerDetail = {
+    upcoming: [],
+    past: [],
+    sales: [],
+    alimtalkLogs: [],
+    consents: [],
+  };
   const ctx = await requireShop();
   if (!ctx) return empty;
 
   const supabase = await createClient();
   const today = kstDateString();
 
-  const [resvRes, salesRes, logsRes] = await Promise.all([
+  const [resvRes, salesRes, logsRes, consentRes] = await Promise.all([
     supabase
       .from("reservations")
       .select(
@@ -242,6 +268,15 @@ export async function getCustomerDetail(
       .eq("customer_id", customerId)
       .order("created_at", { ascending: false })
       .limit(50),
+    supabase
+      .from("consent_submissions")
+      .select(
+        "id, created_at, status, signer_name, signature_url, signed_at, form:consent_forms(title)"
+      )
+      .eq("shop_id", ctx.shop!.id)
+      .eq("customer_id", customerId)
+      .order("created_at", { ascending: false })
+      .limit(30),
   ]);
 
   type ResvRow = {
@@ -314,6 +349,25 @@ export async function getCustomerDetail(
       content: l.content as string,
       phone: l.phone as string,
       status: l.status as string,
+    })),
+    consents: (
+      (consentRes.data ?? []) as unknown as Array<{
+        id: string;
+        created_at: string;
+        status: string;
+        signer_name: string | null;
+        signature_url: string | null;
+        signed_at: string | null;
+        form: { title: string } | null;
+      }>
+    ).map((c) => ({
+      id: c.id,
+      createdAt: c.created_at,
+      formTitle: c.form?.title ?? "동의서",
+      status: c.status,
+      signerName: c.signer_name,
+      signatureUrl: c.signature_url,
+      signedAt: c.signed_at,
     })),
   };
 }

@@ -115,6 +115,44 @@ export async function deleteConsentForm(id: string): Promise<ActionResult> {
   return { ok: true };
 }
 
+// ---------------- 서명 완료 동의서 조회 (예약 모달 안내용) ----------------
+
+export interface SignedConsentInfo {
+  formTitle: string;
+  signedAt: string | null;
+}
+
+/** 고객이 이미 서명 완료한 동의서 목록 (같은 동의서는 최신 1건만) */
+export async function getCustomerSignedConsents(
+  customerId: string
+): Promise<SignedConsentInfo[]> {
+  const ctx = await getAuthContext();
+  if (!ctx.profile || !ctx.shop) return [];
+
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("consent_submissions")
+    .select("signed_at, form:consent_forms(title)")
+    .eq("shop_id", ctx.shop.id)
+    .eq("customer_id", customerId)
+    .eq("status", "signed")
+    .order("signed_at", { ascending: false })
+    .limit(20);
+
+  const seen = new Set<string>();
+  const result: SignedConsentInfo[] = [];
+  for (const row of (data ?? []) as unknown as Array<{
+    signed_at: string | null;
+    form: { title: string } | null;
+  }>) {
+    const title = row.form?.title ?? "동의서";
+    if (seen.has(title)) continue;
+    seen.add(title);
+    result.push({ formTitle: title, signedAt: row.signed_at });
+  }
+  return result;
+}
+
 // ---------------- 고객 서명 (공개 페이지에서 호출) ----------------
 
 export async function signConsent(

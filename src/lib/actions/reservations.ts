@@ -22,7 +22,7 @@ export interface ReservationInput {
   endTime: string; // HH:MM
   memo: string;
   pets: ReservationPetInput[];
-  alimtalkKinds: AlimtalkKind[]; // 선택 발송 (basic/senior/consent)
+  alimtalkKinds: AlimtalkKind[]; // 선택 발송 (basic/senior/consent/deposit)
   consentFormId: string | null; // consent 발송 시 사용할 동의서
 }
 
@@ -144,18 +144,21 @@ export async function createReservation(
       }
     }
 
-    // 예약금 안내 (설정에서 사용 시 자동 발송, 신규/기존 고객 대상 필터 적용)
-    const { count: priorCount } = await supabase
-      .from("reservations")
-      .select("id", { count: "exact", head: true })
-      .eq("shop_id", ctx.shop!.id)
-      .eq("customer_id", input.customerId)
-      .neq("id", reservation.id)
-      .neq("status", "deleted");
-    await sendAlimtalk("deposit", alimtalkCtx, {
-      onlyIfEnabled: true,
-      customerIsNew: (priorCount ?? 0) === 0,
-    });
+    // 예약금 안내 자동 발송 (설정에서 사용 시, 신규/기존 고객 대상 필터 적용)
+    // 모달에서 직접 선택해 이미 보낸 경우에는 중복 발송하지 않는다.
+    if (!input.alimtalkKinds.includes("deposit")) {
+      const { count: priorCount } = await supabase
+        .from("reservations")
+        .select("id", { count: "exact", head: true })
+        .eq("shop_id", ctx.shop!.id)
+        .eq("customer_id", input.customerId)
+        .neq("id", reservation.id)
+        .neq("status", "deleted");
+      await sendAlimtalk("deposit", alimtalkCtx, {
+        onlyIfEnabled: true,
+        customerIsNew: (priorCount ?? 0) === 0,
+      });
+    }
   }
 
   revalidatePath("/reservations");
@@ -178,9 +181,6 @@ export async function createReservationWithNewCustomer(
   if (!ctx) return { ok: false, error: "로그인이 필요합니다." };
   if (!hasPermission(ctx.profile!, "create")) {
     return { ok: false, error: "예약 등록 권한이 없습니다." };
-  }
-  if (!customer.name.trim()) {
-    return { ok: false, error: "보호자 호칭을 입력해 주세요." };
   }
   const validPets = pets.filter((p) => p.name.trim());
   if (validPets.length === 0) {

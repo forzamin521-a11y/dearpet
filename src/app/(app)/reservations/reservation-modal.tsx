@@ -4,6 +4,10 @@ import { useMemo, useRef, useState, useTransition } from "react";
 import { toast } from "sonner";
 import { History, Minus, Plus, X } from "lucide-react";
 import { searchCustomers } from "@/lib/actions/customers";
+import {
+  getCustomerSignedConsents,
+  type SignedConsentInfo,
+} from "@/lib/actions/messaging";
 import { BreedInput } from "@/components/breed-input";
 import {
   createReservation,
@@ -169,6 +173,8 @@ export function ReservationModal({
     editing ? [] : ["basic"]
   );
   const [consentFormId, setConsentFormId] = useState<string | null>(null);
+  // 이미 서명 완료한 동의서 (재발송 판단 안내용)
+  const [signedConsents, setSignedConsents] = useState<SignedConsentInfo[]>([]);
 
   // 고객 검색 (디바운스)
   const handleQueryChange = (value: string) => {
@@ -200,8 +206,8 @@ export function ReservationModal({
     );
   }, [mode, petSelections]);
 
-  /** 선택된 서비스들의 최대 소요시간(분) */
-  const computeMaxDuration = (
+  /** 선택된 서비스들의 총 소요시간(분) — 여러 마리는 한 마리씩 순차 진행 */
+  const computeTotalDuration = (
     selections: PetSelection[],
     drafts: NewPetDraft[]
   ) => {
@@ -209,10 +215,9 @@ export function ReservationModal({
       mode === "existing"
         ? selections.filter((s) => s.selected).map((s) => s.serviceId)
         : drafts.map((p) => p.serviceId);
-    const durations = ids
+    return ids
       .filter((id): id is string => !!id)
-      .map((id) => serviceById.get(id)?.duration_minutes ?? 0);
-    return durations.length > 0 ? Math.max(...durations) : 0;
+      .reduce((sum, id) => sum + (serviceById.get(id)?.duration_minutes ?? 0), 0);
   };
 
   /** 종료시간 자동 계산 (사용자가 직접 종료시간을 만진 뒤에는 건드리지 않음) */
@@ -222,12 +227,13 @@ export function ReservationModal({
     drafts: NewPetDraft[]
   ) => {
     if (endTouched || !start) return;
-    const duration = computeMaxDuration(selections, drafts) || 60;
+    const duration = computeTotalDuration(selections, drafts) || 60;
     setEndTime(minutesToTime(timeToMinutes(start) + duration));
   };
 
-  /** 노령견이 선택되면 노령견 알림톡 자동 체크 */
+  /** 노령견이 선택되면 ⑤ 동의서에 노령견 동의서 자동 선택 (직접 고른 게 있으면 유지) */
   const maybeAutoSenior = (selections: PetSelection[]) => {
+    if (editing) return;
     const senior = selections.some(
       (s) =>
         s.selected &&
@@ -235,9 +241,10 @@ export function ReservationModal({
         ageInYears(s.pet.birth_date) >= SENIOR_PET_AGE
     );
     if (senior) {
-      setAlimtalkKinds((prev) =>
-        prev.includes("senior") ? prev : [...prev, "senior"]
-      );
+      const seniorForm = consentForms.find((f) => f.title.includes("노령견"));
+      if (seniorForm) {
+        setConsentFormId((prev) => prev ?? seniorForm.id);
+      }
     }
   };
 
@@ -255,6 +262,8 @@ export function ReservationModal({
     setPetSelections(selections);
     maybeAutoSenior(selections);
     autoEnd(startTime, selections, newPets);
+    setSignedConsents([]);
+    getCustomerSignedConsents(c.id).then(setSignedConsents);
   };
 
   const toggleHistory = () => {
@@ -328,9 +337,14 @@ export function ReservationModal({
   }, []);
 
   const toggleAlimtalk = (kind: AlimtalkKind) => {
-    setAlimtalkKinds((prev) =>
-      prev.includes(kind) ? prev.filter((k) => k !== kind) : [...prev, kind]
-    );
+    setAlimtalkKinds((prev) => {
+      if (prev.includes(kind)) return prev.filter((k) => k !== kind);
+      const next = [...prev, kind];
+      // 예약금 안내와 기본 예약 안내는 둘 중 하나만 발송
+      if (kind === "deposit") return next.filter((k) => k !== "basic");
+      if (kind === "basic") return next.filter((k) => k !== "deposit");
+      return next;
+    });
   };
 
   const canSubmit =
@@ -339,7 +353,7 @@ export function ReservationModal({
     endTime &&
     (mode === "existing"
       ? !!customer && petSelections.some((s) => s.selected)
-      : newName.trim() && newPets.some((p) => p.name.trim()));
+      : newPets.some((p) => p.name.trim()));
 
   const submit = () => {
     const base = {
@@ -348,10 +362,10 @@ export function ReservationModal({
       startTime,
       endTime,
       memo,
-      alimtalkKinds:
-        alimtalkKinds.includes("consent") && !consentFormId
-          ? alimtalkKinds.filter((k) => k !== "consent")
-          : alimtalkKinds,
+      // ⑤에서 동의서를 고르면 동의서 작성 안내 알림톡이 발송된다
+      alimtalkKinds: consentFormId
+        ? ([...alimtalkKinds, "consent"] as AlimtalkKind[])
+        : alimtalkKinds,
       consentFormId,
     };
 
@@ -434,7 +448,9 @@ export function ReservationModal({
                   <Card>
                     <CardContent className="flex items-start justify-between pt-4">
                       <div>
-                        <p className="font-semibold">{customer.name}</p>
+                        <p className="font-semibold">
+                          {customer.name || "(호칭 없음)"}
+                        </p>
                         <p className="text-sm text-muted-foreground">
                           {customer.phones?.[0] ?? "전화번호 없음"}
                         </p>
@@ -467,6 +483,7 @@ export function ReservationModal({
                             setPetSelections([]);
                             setHistory(null);
                             setHistoryOpen(false);
+                            setSignedConsents([]);
                           }}
                         >
                           <X />
@@ -558,7 +575,7 @@ export function ReservationModal({
                             className="w-full px-3 py-2 text-left text-sm hover:bg-accent"
                             onClick={() => selectCustomer(c)}
                           >
-                            {c.name}
+                            {c.name || "(호칭 없음)"}
                             {c.phones?.[0]
                               ? ` (${c.phones[0].slice(-4)})`
                               : ""}{" "}
@@ -580,7 +597,7 @@ export function ReservationModal({
               <div className="space-y-3">
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1">
-                    <Label className="text-xs">보호자 호칭 *</Label>
+                    <Label className="text-xs">보호자 호칭</Label>
                     <Input
                       value={newName}
                       onChange={(e) => setNewName(e.target.value)}
@@ -840,11 +857,11 @@ export function ReservationModal({
             </div>
           </section>
 
-          {/* ④ 알림톡 선택 발송 */}
+          {/* ④ 안내 알림톡 발송 */}
           {!editing && (
             <section className="space-y-3">
               <p className="text-sm font-semibold text-primary">
-                ④ 알림톡 선택 발송
+                ④ 안내 알림톡 발송
               </p>
               <div className="space-y-2 rounded-lg border p-3">
                 {SELECTABLE_ALIMTALK.map((kind) => (
@@ -857,33 +874,66 @@ export function ReservationModal({
                       onCheckedChange={() => toggleAlimtalk(kind)}
                     />
                     {ALIMTALK_KIND_LABEL[kind]}
-                    {kind === "senior" && hasSeniorPet && (
-                      <span className="text-xs text-orange-600">
-                        (노령견 자동 선택)
+                    {kind === "deposit" && (
+                      <span className="text-xs text-muted-foreground">
+                        (당일취소가 잦은 고객 등)
                       </span>
                     )}
                   </label>
                 ))}
+                <p className="text-xs text-muted-foreground">
+                  예약금 안내를 체크하면 기본 예약 안내는 발송되지 않습니다.
+                </p>
               </div>
-              {alimtalkKinds.includes("consent") && (
-                <div className="space-y-1">
-                  <Label className="text-xs">⑤ 발송할 동의서</Label>
-                  <Select
-                    value={consentFormId ?? ""}
-                    onValueChange={setConsentFormId}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="동의서를 선택해 주세요" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {consentForms.map((form) => (
-                        <SelectItem key={form.id} value={form.id}>
-                          {form.title}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
+            </section>
+          )}
+
+          {/* ⑤ 동의서 발송 */}
+          {!editing && (
+            <section className="space-y-2">
+              <p className="text-sm font-semibold text-primary">⑤ 동의서 발송</p>
+              <Select
+                value={consentFormId ?? "none"}
+                onValueChange={(v) =>
+                  setConsentFormId(v === "none" ? null : v)
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">발송 안 함</SelectItem>
+                  {consentForms.map((form) => (
+                    <SelectItem key={form.id} value={form.id}>
+                      {form.title}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                동의서를 선택하면 서명 링크가 담긴 알림톡이 함께 발송됩니다.
+              </p>
+              {hasSeniorPet && (
+                <p className="text-xs text-orange-600">
+                  노령견이 포함된 예약이라 노령견 동의서가 자동 선택됩니다.
+                </p>
+              )}
+              {signedConsents.length > 0 && (
+                <p className="text-xs text-green-700">
+                  ✅ 이미 서명 완료:{" "}
+                  {signedConsents
+                    .map(
+                      (c) =>
+                        `${c.formTitle}${
+                          c.signedAt
+                            ? ` (${c.signedAt
+                                .slice(2, 10)
+                                .replaceAll("-", ". ")})`
+                            : ""
+                        }`
+                    )
+                    .join(", ")}
+                </p>
               )}
             </section>
           )}
