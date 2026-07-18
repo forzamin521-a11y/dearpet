@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Minus, Plus } from "lucide-react";
+import { BreedInput } from "@/components/breed-input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -186,10 +187,10 @@ export function CustomerForm({
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
                   <Label className="text-xs">품종</Label>
-                  <Input
+                  <BreedInput
                     value={pet.breed}
-                    onChange={(e) => updatePet(i, { breed: e.target.value })}
-                    placeholder="예: 말티푸"
+                    onChange={(breed) => updatePet(i, { breed })}
+                    species={pet.species}
                   />
                 </div>
                 <div className="space-y-1">

@@ -287,15 +287,42 @@ export async function bulkCreateCustomers(
   return { ok: true, inserted: toInsert.length, skipped };
 }
 
-/** 예약 모달 자동완성용 고객+펫 검색 */
+/**
+ * 예약 모달 자동완성용 고객+펫 검색.
+ * 숫자 입력 → 휴대폰 번호(주로 뒷자리 4자리) 매칭, 문자 입력 → 보호자 호칭/반려동물명 매칭.
+ */
 export async function searchCustomers(query: string) {
   const ctx = await requireShop();
   if (!ctx || !query.trim()) return [];
 
   const supabase = await createClient();
   const q = query.trim();
+  const digits = q.replace(/\D/g, "");
 
-  // 보호자 호칭 / 펫 이름 / 전화번호로 검색
+  // 숫자 위주 입력이면 전화번호 검색 (phones가 배열이라 DB ilike 불가 → 서버에서 매칭)
+  if (digits.length >= 2 && digits.length === q.replace(/[\s-]/g, "").length) {
+    const { data: all } = await supabase
+      .from("customers")
+      .select("id, phones")
+      .eq("shop_id", ctx.shop!.id);
+
+    const matchedIds = (all ?? [])
+      .filter((c: { phones: string[] }) =>
+        c.phones.some((p) => p.replace(/\D/g, "").includes(digits))
+      )
+      .slice(0, 10)
+      .map((c: { id: string }) => c.id);
+
+    if (matchedIds.length === 0) return [];
+    const { data } = await supabase
+      .from("customers")
+      .select("*, pets(*)")
+      .eq("shop_id", ctx.shop!.id)
+      .in("id", matchedIds);
+    return data ?? [];
+  }
+
+  // 보호자 호칭 / 반려동물명 검색
   const { data: byName } = await supabase
     .from("customers")
     .select("*, pets(*)")

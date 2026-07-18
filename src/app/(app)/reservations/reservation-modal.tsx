@@ -4,6 +4,7 @@ import { useMemo, useRef, useState, useTransition } from "react";
 import { toast } from "sonner";
 import { Minus, Plus, X } from "lucide-react";
 import { searchCustomers } from "@/lib/actions/customers";
+import { BreedInput } from "@/components/breed-input";
 import {
   createReservation,
   createReservationWithNewCustomer,
@@ -435,7 +436,7 @@ export function ReservationModal({
                   <Input
                     value={query}
                     onChange={(e) => handleQueryChange(e.target.value)}
-                    placeholder="보호자 호칭 또는 반려동물명 검색"
+                    placeholder="휴대폰 뒷자리 4자리 또는 반려동물명 검색"
                     autoFocus
                   />
                   {results.length > 0 && (
@@ -576,13 +577,11 @@ export function ReservationModal({
                           }
                           placeholder="반려동물명 *"
                         />
-                        <Input
+                        <BreedInput
                           value={pet.breed}
-                          onChange={(e) =>
+                          onChange={(breed) =>
                             setNewPets((prev) =>
-                              prev.map((p, j) =>
-                                j === i ? { ...p, breed: e.target.value } : p
-                              )
+                              prev.map((p, j) => (j === i ? { ...p, breed } : p))
                             )
                           }
                           placeholder="품종"
