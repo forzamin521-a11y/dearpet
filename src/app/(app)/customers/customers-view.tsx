@@ -37,6 +37,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { BulkUpload } from "./bulk-upload";
+import { CustomerDetailDialog } from "./customer-detail-dialog";
 import { CustomerForm, type CustomerFormValues } from "./customer-form";
 import type { CustomerWithPets, VisitCounts } from "./page";
 
@@ -206,37 +207,17 @@ export function CustomersView({
         </SheetContent>
       </Sheet>
 
-      {/* 고객 수정 */}
-      <Sheet
-        open={!!editTarget}
-        onOpenChange={(open) => !open && setEditTarget(null)}
-      >
-        <SheetContent className="w-full overflow-y-auto sm:max-w-md">
-          <SheetHeader>
-            <SheetTitle>고객 정보</SheetTitle>
-          </SheetHeader>
-          <div className="space-y-4 px-4 pb-8">
-            {editTarget && (
-              <>
-                <CustomerForm
-                  key={editTarget.id}
-                  initial={editTarget}
-                  onSubmit={handleUpdate}
-                  pending={pending}
-                  submitLabel="수정 저장"
-                />
-                <Button
-                  variant="outline"
-                  className="w-full text-destructive"
-                  onClick={() => setDeleteTarget(editTarget)}
-                >
-                  고객 삭제
-                </Button>
-              </>
-            )}
-          </div>
-        </SheetContent>
-      </Sheet>
+      {/* 고객 상세 (요약 / 고객 정보 / 알림톡) */}
+      {editTarget && (
+        <CustomerDetailDialog
+          customer={editTarget}
+          counts={visitCounts[editTarget.id]}
+          pending={pending}
+          onUpdate={handleUpdate}
+          onDelete={() => setDeleteTarget(editTarget)}
+          onClose={() => setEditTarget(null)}
+        />
+      )}
 
       {/* 삭제 확인 */}
       <AlertDialog

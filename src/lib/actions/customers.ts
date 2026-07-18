@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { getAuthContext } from "@/lib/auth";
+import { kstDateString } from "@/lib/time";
 import type { ActionResult } from "./auth";
 import type { PetSpecies } from "@/lib/types";
 
@@ -160,6 +161,156 @@ export async function deletePet(petId: string): Promise<ActionResult> {
 
   revalidatePath("/customers");
   return { ok: true };
+}
+
+// ---------------- 고객 상세 (요약/알림톡 탭) ----------------
+
+export interface CustomerDetailReservation {
+  id: string;
+  date: string;
+  startTime: string;
+  status: string;
+  memo: string;
+  staffLabel: string | null;
+  petNames: string[];
+  serviceLabels: string[];
+}
+
+export interface CustomerDetailSale {
+  id: string;
+  saleDate: string;
+  totalAmount: number;
+  staffLabel: string | null;
+  items: Array<{ petName: string; description: string; amount: number }>;
+  memo: string;
+}
+
+export interface CustomerDetailAlimtalk {
+  id: string;
+  createdAt: string;
+  kind: string;
+  content: string;
+  phone: string;
+  status: string;
+}
+
+export interface CustomerDetail {
+  upcoming: CustomerDetailReservation[];
+  past: CustomerDetailReservation[];
+  sales: CustomerDetailSale[];
+  alimtalkLogs: CustomerDetailAlimtalk[];
+}
+
+/** 고객 상세 모달용: 보유/과거 예약, 매출, 알림톡 발송 이력 */
+export async function getCustomerDetail(
+  customerId: string
+): Promise<CustomerDetail> {
+  const empty: CustomerDetail = { upcoming: [], past: [], sales: [], alimtalkLogs: [] };
+  const ctx = await requireShop();
+  if (!ctx) return empty;
+
+  const supabase = await createClient();
+  const today = kstDateString();
+
+  const [resvRes, salesRes, logsRes] = await Promise.all([
+    supabase
+      .from("reservations")
+      .select(
+        `id, date, start_time, status, memo,
+         staff:profiles!reservations_staff_id_fkey(name, emoji),
+         reservation_pets(pet:pets(name), option:product_options(name, product:grooming_products(name, emoji)))`
+      )
+      .eq("shop_id", ctx.shop!.id)
+      .eq("customer_id", customerId)
+      .neq("status", "deleted")
+      .order("date", { ascending: false })
+      .order("start_time", { ascending: false })
+      .limit(50),
+    supabase
+      .from("sales")
+      .select("id, sale_date, total_amount, items, memo, staff:profiles(name, emoji)")
+      .eq("shop_id", ctx.shop!.id)
+      .eq("customer_id", customerId)
+      .order("sale_date", { ascending: false })
+      .limit(30),
+    supabase
+      .from("alimtalk_logs")
+      .select("id, created_at, kind, content, phone, status")
+      .eq("shop_id", ctx.shop!.id)
+      .eq("customer_id", customerId)
+      .order("created_at", { ascending: false })
+      .limit(50),
+  ]);
+
+  type ResvRow = {
+    id: string;
+    date: string;
+    start_time: string;
+    status: string;
+    memo: string;
+    staff: { name: string; emoji: string } | null;
+    reservation_pets: Array<{
+      pet: { name: string } | null;
+      option: { name: string; product: { name: string; emoji: string } | null } | null;
+    }>;
+  };
+
+  const reservations = ((resvRes.data ?? []) as unknown as ResvRow[]).map((r) => ({
+    id: r.id,
+    date: r.date,
+    startTime: String(r.start_time).slice(0, 5),
+    status: r.status,
+    memo: r.memo,
+    staffLabel: r.staff ? `${r.staff.name}${r.staff.emoji}` : null,
+    petNames: r.reservation_pets
+      .map((rp) => rp.pet?.name)
+      .filter(Boolean) as string[],
+    serviceLabels: [
+      ...new Set(
+        r.reservation_pets
+          .map((rp) =>
+            rp.option
+              ? `${rp.option.product?.emoji ?? ""}${rp.option.product?.name ?? ""}`
+              : null
+          )
+          .filter(Boolean) as string[]
+      ),
+    ],
+  }));
+
+  type SaleRow = {
+    id: string;
+    sale_date: string;
+    total_amount: number;
+    memo: string;
+    items: Array<{ petName: string; description: string; amount: number }> | null;
+    staff: { name: string; emoji: string } | null;
+  };
+
+  return {
+    upcoming: reservations
+      .filter((r) => r.date >= today && !["canceled", "no_show", "completed"].includes(r.status))
+      .reverse(),
+    past: reservations.filter(
+      (r) => r.date < today || ["canceled", "no_show", "completed"].includes(r.status)
+    ),
+    sales: ((salesRes.data ?? []) as unknown as SaleRow[]).map((s) => ({
+      id: s.id,
+      saleDate: s.sale_date,
+      totalAmount: s.total_amount,
+      staffLabel: s.staff ? `${s.staff.name}${s.staff.emoji}` : null,
+      items: s.items ?? [],
+      memo: s.memo,
+    })),
+    alimtalkLogs: (logsRes.data ?? []).map((l) => ({
+      id: l.id as string,
+      createdAt: l.created_at as string,
+      kind: l.kind as string,
+      content: l.content as string,
+      phone: l.phone as string,
+      status: l.status as string,
+    })),
+  };
 }
 
 // ---------------- 일괄 업로드 ----------------
