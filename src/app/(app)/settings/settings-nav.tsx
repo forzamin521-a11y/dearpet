@@ -12,7 +12,8 @@ const GROUPS: Array<{
     label: "운영",
     items: [
       { title: "매장 정보 설정", href: "/settings/shop" },
-      { title: "미용 상품", href: "/settings/products" },
+      { title: "미용 서비스 (예약)", href: "/settings/products" },
+      { title: "판매 상품 (매출)", href: "/settings/sale-products" },
       { title: "예약 박스 설정", href: "/settings/box" },
     ],
   },

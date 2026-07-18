@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useOptimistic, useState, useTransition } from "react";
+import { useEffect, useMemo, useOptimistic, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import {
@@ -34,6 +34,8 @@ import { WeekGrid } from "./week-grid";
 import { ReservationModal, type ModalPrefill } from "./reservation-modal";
 import { ReservationDetail } from "./reservation-detail";
 
+const HIDDEN_STAFF_KEY = "dearpet-day-hidden-staff";
+
 export interface CalendarPermissions {
   create: boolean;
   update: boolean;
@@ -66,6 +68,29 @@ export function ReservationsView(props: ReservationsViewProps) {
     null
   );
   const [mobileCalOpen, setMobileCalOpen] = useState(false);
+
+  // 일간 캘린더에서 숨긴 담당자 열 (뷰 전용, 브라우저별 저장)
+  const [hiddenStaffIds, setHiddenStaffIds] = useState<Set<string>>(new Set());
+  useEffect(() => {
+    const raw = localStorage.getItem(HIDDEN_STAFF_KEY);
+    if (!raw) return;
+    // 마운트 후 비동기로 반영 (SSR 마크업과의 불일치 방지)
+    queueMicrotask(() => {
+      try {
+        setHiddenStaffIds(new Set(JSON.parse(raw) as string[]));
+      } catch {
+        /* 저장값이 깨졌으면 무시 */
+      }
+    });
+  }, []);
+  const changeHiddenStaff = (ids: Set<string>) => {
+    setHiddenStaffIds(new Set(ids));
+    try {
+      localStorage.setItem(HIDDEN_STAFF_KEY, JSON.stringify([...ids]));
+    } catch {
+      /* 저장 실패는 무시 (뷰 전용 설정) */
+    }
+  };
 
   // 날짜/뷰 전환 시 서버 응답을 기다리지 않고 즉시 UI에 반영 (데이터 로딩 동안 그리드는 흐리게)
   const [navPending, startNavTransition] = useTransition();
@@ -257,6 +282,8 @@ export function ReservationsView(props: ReservationsViewProps) {
               closeTime={props.closeTime}
               boxSettings={props.boxSettings}
               staff={props.staff}
+              hiddenStaffIds={hiddenStaffIds}
+              onChangeHiddenStaff={changeHiddenStaff}
               reservations={props.reservations}
               canCreate={props.permissions.create}
               onSlotClick={(startTime, staffId) =>
@@ -296,6 +323,7 @@ export function ReservationsView(props: ReservationsViewProps) {
       {detail && (
         <ReservationDetail
           reservation={detail}
+          staff={props.staff}
           permissions={props.permissions}
           onClose={() => setDetailTarget(null)}
           onEdit={() => {

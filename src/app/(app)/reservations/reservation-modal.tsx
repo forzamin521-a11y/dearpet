@@ -417,12 +417,12 @@ export function ReservationModal({
 
   return (
     <Sheet open onOpenChange={(open) => !open && onClose()}>
-      <SheetContent className="w-full overflow-y-auto sm:max-w-md">
+      <SheetContent className="w-full overflow-y-auto sm:max-w-lg">
         <SheetHeader>
           <SheetTitle>{editing ? "예약 수정" : "예약 등록"}</SheetTitle>
         </SheetHeader>
 
-        <div className="space-y-5 px-4 pb-24">
+        <div className="space-y-6 px-5 pb-24">
           {/* ① 보호자 정보 */}
           <section className="space-y-3">
             <p className="text-sm font-semibold text-primary">① 보호자 정보</p>
@@ -976,7 +976,7 @@ function ServiceChips({
     );
   }
   return (
-    <div className="flex flex-wrap gap-1.5">
+    <div className="flex flex-wrap gap-2">
       {services.map((service) => {
         const active = serviceId === service.id;
         return (

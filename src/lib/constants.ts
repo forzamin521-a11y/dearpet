@@ -6,10 +6,10 @@ export const RESERVATION_STATUS: Record<
 > = {
   reserved: {
     label: "예약",
-    dot: "bg-violet-500",
-    bg: "bg-violet-100",
-    text: "text-violet-800",
-    border: "border-violet-300",
+    dot: "bg-rose-400",
+    bg: "bg-rose-100",
+    text: "text-rose-800",
+    border: "border-rose-300",
   },
   arrived: {
     label: "도착",
@@ -34,10 +34,10 @@ export const RESERVATION_STATUS: Record<
   },
   canceled: {
     label: "취소",
-    dot: "bg-pink-400",
-    bg: "bg-pink-100",
-    text: "text-pink-800",
-    border: "border-pink-300",
+    dot: "bg-red-400",
+    bg: "bg-red-100",
+    text: "text-red-800",
+    border: "border-red-300",
   },
   no_show: {
     label: "노쇼",

@@ -106,6 +106,31 @@ export interface Service {
   created_at: string;
 }
 
+/** 판매 상품 카테고리 (매출 등록용, 예: 목욕/전체미용/추가비용) */
+export interface SaleProductCategory {
+  id: string;
+  shop_id: string;
+  name: string;
+  sort_order: number;
+  created_at: string;
+}
+
+/**
+ * 판매 상품 (매출 등록 화면에서 선택, 예: "목욕> 🟧소형견 4kg" 20,000원).
+ * staff_id가 null이면 기본 세트(모든 담당자 공통),
+ * 담당자의 상품이 1개라도 있으면 그 담당자에게는 개별 세트가 적용된다.
+ */
+export interface SaleProduct {
+  id: string;
+  shop_id: string;
+  category_id: string;
+  staff_id: string | null;
+  name: string;
+  price: number;
+  sort_order: number;
+  created_at: string;
+}
+
 export interface GroomingProduct {
   id: string;
   shop_id: string;

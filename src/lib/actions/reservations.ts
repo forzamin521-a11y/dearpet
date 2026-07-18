@@ -386,10 +386,17 @@ export async function updateReservation(
   return { ok: true };
 }
 
+/** 매출 등록 상세 (판매 상품 선택 내역 + 매출 담당자) */
+export interface SaleDetailInput {
+  items: SaleItem[];
+  staffId: string | null;
+}
+
 export async function updateReservationStatus(
   reservationId: string,
   status: ReservationStatus,
-  payment?: PaymentInput
+  payment?: PaymentInput,
+  saleDetail?: SaleDetailInput
 ): Promise<ActionResult> {
   const ctx = await requireShop();
   if (!ctx) return { ok: false, error: "로그인이 필요합니다." };
@@ -410,7 +417,11 @@ export async function updateReservationStatus(
 
   // 완료 → 매출 자동 등록
   if (status === "completed" && payment) {
-    const saleResult = await createSaleFromReservation(reservationId, payment);
+    const saleResult = await createSaleFromReservation(
+      reservationId,
+      payment,
+      saleDetail
+    );
     if (!saleResult.ok) return saleResult;
   }
 
@@ -431,10 +442,13 @@ export async function updateReservationStatus(
 /**
  * 예약에서 매출 생성 (이미 있으면 건너뜀).
  * 금액은 완료 시 입력받은 결제 금액(현금+카드+이체 합)을 사용한다.
+ * saleDetail(판매 상품 선택 내역 + 담당자)이 있으면 그대로 기록하고,
+ * 없으면 예약의 서비스/담당자 정보로 구성한다(구 방식).
  */
 async function createSaleFromReservation(
   reservationId: string,
-  payment: PaymentInput
+  payment: PaymentInput,
+  saleDetail?: SaleDetailInput
 ): Promise<ActionResult> {
   const admin = createAdminClient();
 
@@ -468,23 +482,26 @@ async function createSaleFromReservation(
   const total = payment.cash + payment.card + payment.transfer;
   if (total <= 0) return { ok: false, error: "결제 금액을 입력해 주세요." };
 
-  // 반려동물별 서비스 내역 — 금액은 총액을 첫 항목에 기재
-  const items: SaleItem[] = pets.map((p, i) => ({
-    petName: p.pet?.name ?? "",
-    description:
-      (p.service
-        ? `${p.service.emoji}${p.service.name}`
-        : p.option
-          ? `${p.option.product?.name ?? ""}> ${p.option.name}`
-          : "서비스 미지정"),
-    amount: i === 0 ? total : 0,
-  }));
+  // 판매 상품 선택 내역이 있으면 그대로, 없으면 예약 서비스로 구성(총액을 첫 항목에 기재)
+  const items: SaleItem[] =
+    saleDetail && saleDetail.items.length > 0
+      ? saleDetail.items
+      : pets.map((p, i) => ({
+          petName: p.pet?.name ?? "",
+          description:
+            (p.service
+              ? `${p.service.emoji}${p.service.name}`
+              : p.option
+                ? `${p.option.product?.name ?? ""}> ${p.option.name}`
+                : "서비스 미지정"),
+          amount: i === 0 ? total : 0,
+        }));
 
   const { error } = await admin.from("sales").insert({
     shop_id: reservation.shop_id,
     reservation_id: reservation.id,
     customer_id: reservation.customer_id,
-    staff_id: reservation.staff_id,
+    staff_id: saleDetail ? saleDetail.staffId : reservation.staff_id,
     sale_date: reservation.date,
     items,
     total_amount: total,
@@ -499,7 +516,8 @@ async function createSaleFromReservation(
 /** 완료된 예약에 나중에 매출을 등록할 때 사용 */
 export async function registerSaleForReservation(
   reservationId: string,
-  payment: PaymentInput
+  payment: PaymentInput,
+  saleDetail?: SaleDetailInput
 ): Promise<ActionResult> {
   const ctx = await requireShop();
   if (!ctx) return { ok: false, error: "로그인이 필요합니다." };
@@ -514,7 +532,11 @@ export async function registerSaleForReservation(
     .single();
   if (!reservation) return { ok: false, error: "예약을 찾을 수 없습니다." };
 
-  const result = await createSaleFromReservation(reservationId, payment);
+  const result = await createSaleFromReservation(
+    reservationId,
+    payment,
+    saleDetail
+  );
   if (!result.ok) return result;
 
   revalidatePath("/reservations");

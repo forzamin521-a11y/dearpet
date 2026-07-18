@@ -82,7 +82,7 @@ export function ServicesManager({ services }: { services: Service[] }) {
               {services.map((service) => (
                 <li
                   key={service.id}
-                  className="flex items-center gap-3 py-2.5 text-sm"
+                  className="flex items-center gap-3 py-3 text-sm"
                 >
                   <span className="inline-flex items-center gap-1 rounded-full border bg-secondary px-3 py-1 font-medium">
                     {service.emoji}

@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 import type { Service } from "@/lib/types";
 import { ServicesManager } from "./services-manager";
 
-export const metadata: Metadata = { title: "미용 상품" };
+export const metadata: Metadata = { title: "미용 서비스" };
 
 export default async function ProductsSettingsPage() {
   const { shop } = await getAuthContext();
@@ -22,10 +22,11 @@ export default async function ProductsSettingsPage() {
   return (
     <div className="max-w-3xl space-y-4">
       <div>
-        <h2 className="text-lg font-bold">미용 상품</h2>
+        <h2 className="text-lg font-bold">미용 서비스 (예약)</h2>
         <p className="text-sm text-muted-foreground">
           예약 시 선택하는 서비스 목록입니다. 서비스의 소요시간으로 종료시간이
-          자동 계산되며, 가격은 완료 처리 시 매출 등록에서 입력합니다.
+          자동 계산됩니다. 매출 등록에 쓰는 상품·금액은 &lsquo;판매 상품&rsquo;
+          메뉴에서 관리합니다.
         </p>
       </div>
       <ServicesManager services={(services ?? []) as Service[]} />

@@ -1,6 +1,7 @@
 "use client";
 
-import { Fragment } from "react";
+import { Fragment, useState } from "react";
+import { Eye, EyeOff } from "lucide-react";
 import { RESERVATION_STATUS, SLOT_MINUTES } from "@/lib/constants";
 import { cn } from "@/lib/utils";
 import { formatKoreanTime, minutesToTime, timeToMinutes } from "@/lib/time";
@@ -15,10 +16,20 @@ interface DayGridProps {
   closeTime: string;
   boxSettings: BoxSettings;
   staff: Profile[];
+  /** 뷰에서 숨긴 담당자 (일정 자체는 유지) */
+  hiddenStaffIds: Set<string>;
+  onChangeHiddenStaff: (ids: Set<string>) => void;
   reservations: ReservationFull[];
   canCreate: boolean;
   onSlotClick: (startTime: string, staffId: string | null) => void;
   onReservationClick: (reservation: ReservationFull) => void;
+}
+
+/** 우클릭 컨텍스트 메뉴 상태 */
+interface ColumnMenu {
+  x: number;
+  y: number;
+  staffId: string | null;
 }
 
 export function DayGrid({
@@ -27,11 +38,15 @@ export function DayGrid({
   closeTime,
   boxSettings,
   staff,
+  hiddenStaffIds,
+  onChangeHiddenStaff,
   reservations,
   canCreate,
   onSlotClick,
   onReservationClick,
 }: DayGridProps) {
+  const [menu, setMenu] = useState<ColumnMenu | null>(null);
+
   const startMin = timeToMinutes(openTime);
   const endMin = Math.max(timeToMinutes(closeTime), startMin + 60);
   const totalMin = endMin - startMin;
@@ -39,11 +54,35 @@ export function DayGrid({
   const dayReservations = reservations.filter((r) => r.date === date);
   const hasUnassigned = dayReservations.some((r) => !r.staff_id);
 
+  const visibleStaff = staff.filter((s) => !hiddenStaffIds.has(s.id));
+  const hiddenStaff = staff.filter((s) => hiddenStaffIds.has(s.id));
+
   const columns: Array<{ id: string | null; label: string }> = [
-    ...staff.map((s) => ({ id: s.id, label: `${s.name}${s.emoji}` })),
+    ...visibleStaff.map((s) => ({ id: s.id, label: `${s.name}${s.emoji}` })),
     ...(hasUnassigned ? [{ id: null, label: "담당자 미지정" }] : []),
   ];
   if (columns.length === 0) columns.push({ id: null, label: "담당자 미지정" });
+
+  const openMenu = (e: React.MouseEvent, staffId: string | null) => {
+    e.preventDefault();
+    setMenu({ x: e.clientX, y: e.clientY, staffId });
+  };
+
+  const hideStaff = (staffId: string) => {
+    onChangeHiddenStaff(new Set([...hiddenStaffIds, staffId]));
+    setMenu(null);
+  };
+
+  const showStaff = (staffId: string) => {
+    const next = new Set(hiddenStaffIds);
+    next.delete(staffId);
+    onChangeHiddenStaff(next);
+    setMenu(null);
+  };
+
+  const menuStaff = menu?.staffId
+    ? staff.find((s) => s.id === menu.staffId)
+    : null;
 
   const hourMarks: number[] = [];
   for (let m = startMin; m < endMin; m += 60) hourMarks.push(m);
@@ -73,7 +112,10 @@ export function DayGrid({
         );
         return (
           <Fragment key={column.id ?? "none"}>
-            <div className="min-w-56 flex-1 border-r last:border-r-0">
+            <div
+              className="min-w-56 flex-1 border-r last:border-r-0"
+              onContextMenu={(e) => openMenu(e, column.id)}
+            >
               <div className="sticky top-0 z-10 flex h-10 items-center justify-center border-b bg-background text-sm font-semibold">
                 {column.label}
               </div>
@@ -136,6 +178,78 @@ export function DayGrid({
           </Fragment>
         );
       })}
+
+      {/* 우클릭 컨텍스트 메뉴: 담당자 달력 추가/숨기기 (뷰 전용) */}
+      {menu && (
+        <>
+          <div
+            className="fixed inset-0 z-40"
+            onClick={() => setMenu(null)}
+            onContextMenu={(e) => {
+              e.preventDefault();
+              setMenu(null);
+            }}
+          />
+          <div
+            className="fixed z-50 min-w-48 rounded-lg border bg-popover p-1 text-sm shadow-md"
+            style={{
+              left: Math.min(menu.x, window.innerWidth - 220),
+              top: Math.min(menu.y, window.innerHeight - 200),
+            }}
+          >
+            {menuStaff && visibleStaff.length > 1 && (
+              <button
+                type="button"
+                className="flex w-full items-center gap-2 rounded-md px-2.5 py-2 text-left hover:bg-accent"
+                onClick={() => hideStaff(menuStaff.id)}
+              >
+                <EyeOff className="size-4 text-muted-foreground" />
+                &lsquo;{menuStaff.name}
+                {menuStaff.emoji}&rsquo; 달력 숨기기
+              </button>
+            )}
+            {menuStaff && visibleStaff.length <= 1 && (
+              <p className="px-2.5 py-2 text-xs text-muted-foreground">
+                마지막 담당자 달력은 숨길 수 없습니다.
+              </p>
+            )}
+            {hiddenStaff.length > 0 && (
+              <>
+                {menuStaff && <div className="my-1 border-t" />}
+                {hiddenStaff.map((s) => (
+                  <button
+                    key={s.id}
+                    type="button"
+                    className="flex w-full items-center gap-2 rounded-md px-2.5 py-2 text-left hover:bg-accent"
+                    onClick={() => showStaff(s.id)}
+                  >
+                    <Eye className="size-4 text-muted-foreground" />
+                    &lsquo;{s.name}
+                    {s.emoji}&rsquo; 달력 추가
+                  </button>
+                ))}
+                <div className="my-1 border-t" />
+                <button
+                  type="button"
+                  className="flex w-full items-center gap-2 rounded-md px-2.5 py-2 text-left hover:bg-accent"
+                  onClick={() => {
+                    onChangeHiddenStaff(new Set());
+                    setMenu(null);
+                  }}
+                >
+                  <Eye className="size-4 text-muted-foreground" />
+                  모든 담당자 표시
+                </button>
+              </>
+            )}
+            {!menuStaff && hiddenStaff.length === 0 && (
+              <p className="px-2.5 py-2 text-xs text-muted-foreground">
+                담당자 열에서 우클릭하면 달력을 숨길 수 있습니다.
+              </p>
+            )}
+          </div>
+        </>
+      )}
     </div>
   );
 }

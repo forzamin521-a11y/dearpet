@@ -140,7 +140,7 @@ export function CustomerDetailDialog({
           {/* ---------------- 요약 ---------------- */}
           <TabsContent
             value="summary"
-            className="min-h-0 flex-1 overflow-y-auto p-4"
+            className="min-h-0 flex-1 overflow-y-auto p-5"
           >
             <div className="flex flex-col gap-6 lg:flex-row">
               {/* 좌측: 보호자/반려동물 */}
@@ -300,7 +300,7 @@ export function CustomerDetailDialog({
           {/* ---------------- 고객 정보 (수정) ---------------- */}
           <TabsContent
             value="info"
-            className="min-h-0 flex-1 overflow-y-auto p-4"
+            className="min-h-0 flex-1 overflow-y-auto p-5"
           >
             <div className="mx-auto max-w-md space-y-4">
               <CustomerForm
@@ -323,7 +323,7 @@ export function CustomerDetailDialog({
           {/* ---------------- 알림톡 ---------------- */}
           <TabsContent
             value="alimtalk"
-            className="min-h-0 flex-1 overflow-y-auto p-4"
+            className="min-h-0 flex-1 overflow-y-auto p-5"
           >
             <div className="rounded-lg border">
               <Table>
@@ -383,7 +383,7 @@ export function CustomerDetailDialog({
           {/* ---------------- 동의서 ---------------- */}
           <TabsContent
             value="consent"
-            className="min-h-0 flex-1 overflow-y-auto p-4"
+            className="min-h-0 flex-1 overflow-y-auto p-5"
           >
             <div className="rounded-lg border">
               <Table>

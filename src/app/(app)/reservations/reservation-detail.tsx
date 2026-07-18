@@ -9,13 +9,6 @@ import {
 } from "@/lib/actions/reservations";
 import { Button } from "@/components/ui/button";
 import {
-  Dialog,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import {
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
@@ -25,8 +18,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
@@ -50,8 +41,9 @@ import {
   formatKoreanTime,
 } from "@/lib/time";
 import type { ReservationFull } from "@/lib/data/reservations";
-import type { ReservationStatus } from "@/lib/types";
+import type { Profile, ReservationStatus, SaleItem } from "@/lib/types";
 import type { CalendarPermissions } from "./reservations-view";
+import { SaleRegisterDialog, type SalePayment } from "./sale-register-dialog";
 
 const STATUS_ORDER: ReservationStatus[] = [
   "reserved",
@@ -65,11 +57,13 @@ const STATUS_ORDER: ReservationStatus[] = [
 
 export function ReservationDetail({
   reservation,
+  staff,
   permissions,
   onClose,
   onEdit,
 }: {
   reservation: ReservationFull;
+  staff: Profile[];
   permissions: CalendarPermissions;
   onClose: () => void;
   onEdit: () => void;
@@ -94,13 +88,15 @@ export function ReservationDetail({
 
   const applyStatus = (
     status: ReservationStatus,
-    payment?: { cash: number; card: number; transfer: number }
+    payment?: SalePayment,
+    saleDetail?: { items: SaleItem[]; staffId: string | null }
   ) => {
     startTransition(async () => {
       const result = await updateReservationStatus(
         reservation.id,
         status,
-        payment
+        payment,
+        saleDetail
       );
       if (result.ok) {
         toast.success(
@@ -116,13 +112,16 @@ export function ReservationDetail({
   };
 
   /** 완료된 예약에 나중에 매출 등록 */
-  const registerSale = (payment: {
-    cash: number;
-    card: number;
-    transfer: number;
-  }) => {
+  const registerSale = (
+    payment: SalePayment,
+    saleDetail?: { items: SaleItem[]; staffId: string | null }
+  ) => {
     startTransition(async () => {
-      const result = await registerSaleForReservation(reservation.id, payment);
+      const result = await registerSaleForReservation(
+        reservation.id,
+        payment,
+        saleDetail
+      );
       if (result.ok) {
         toast.success("매출이 등록되었습니다.");
         setPaymentMode(null);
@@ -152,12 +151,12 @@ export function ReservationDetail({
 
   return (
     <Sheet open onOpenChange={(open) => !open && onClose()}>
-      <SheetContent className="w-full overflow-y-auto sm:max-w-md">
+      <SheetContent className="w-full overflow-y-auto sm:max-w-lg">
         <SheetHeader>
           <SheetTitle>예약 정보</SheetTitle>
         </SheetHeader>
 
-        <div className="space-y-5 px-4 pb-8">
+        <div className="space-y-6 px-5 pb-8">
           {/* 상태 변경 */}
           <div className="flex items-center gap-2">
             <Select
@@ -343,15 +342,17 @@ export function ReservationDetail({
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* 결제 수단/금액 입력 */}
+      {/* 매출 등록 (담당자별 판매 상품 선택 + 결제 수단) */}
       {paymentMode && (
-        <PaymentDialog
+        <SaleRegisterDialog
+          staff={staff}
+          defaultStaffId={reservation.staff_id}
           pending={pending}
           onClose={() => setPaymentMode(null)}
-          onSubmit={(payment) =>
+          onSubmit={(payment, items, staffId) =>
             paymentMode === "complete"
-              ? applyStatus("completed", payment)
-              : registerSale(payment)
+              ? applyStatus("completed", payment, { items, staffId })
+              : registerSale(payment, { items, staffId })
           }
         />
       )}
@@ -469,96 +470,3 @@ function ConsentSubmissionCard({
   );
 }
 
-type PayMethod = "card" | "cash" | "transfer";
-
-const PAY_METHOD_LABEL: Record<PayMethod, string> = {
-  card: "카드결제",
-  cash: "현금",
-  transfer: "계좌이체",
-};
-
-/** 매출 등록: 결제 수단 선택 + 금액 입력 */
-function PaymentDialog({
-  pending,
-  onClose,
-  onSubmit,
-}: {
-  pending: boolean;
-  onClose: () => void;
-  onSubmit: (payment: { cash: number; card: number; transfer: number }) => void;
-}) {
-  const [method, setMethod] = useState<PayMethod>("card");
-  const [amount, setAmount] = useState("");
-
-  const total = Number(amount || 0);
-
-  return (
-    <Dialog open onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="sm:max-w-sm">
-        <DialogHeader>
-          <DialogTitle>매출 등록</DialogTitle>
-        </DialogHeader>
-        <div className="space-y-4">
-          <div className="space-y-1.5">
-            <Label className="text-xs">결제 수단</Label>
-            <div className="flex gap-2">
-              {(Object.keys(PAY_METHOD_LABEL) as PayMethod[]).map((m) => (
-                <button
-                  key={m}
-                  type="button"
-                  onClick={() => setMethod(m)}
-                  className={cn(
-                    "flex-1 rounded-lg border px-3 py-2 text-sm transition-colors",
-                    method === m
-                      ? "border-primary bg-primary text-primary-foreground"
-                      : "hover:bg-accent"
-                  )}
-                >
-                  {PAY_METHOD_LABEL[m]}
-                </button>
-              ))}
-            </div>
-          </div>
-          <div className="space-y-1.5">
-            <Label className="text-xs">금액</Label>
-            <Input
-              type="number"
-              step="1000"
-              min="0"
-              autoFocus
-              value={amount}
-              onChange={(e) => setAmount(e.target.value)}
-              placeholder="예: 50000"
-            />
-            {total > 0 && (
-              <p className="text-right text-sm font-bold text-primary">
-                {total.toLocaleString()}원 ({PAY_METHOD_LABEL[method]})
-              </p>
-            )}
-          </div>
-          <p className="text-xs text-muted-foreground">
-            카드+현금처럼 나눠 결제한 경우, 등록 후 매출 페이지에서 상세 수정할
-            수 있습니다.
-          </p>
-        </div>
-        <DialogFooter>
-          <Button variant="outline" onClick={onClose}>
-            취소
-          </Button>
-          <Button
-            disabled={pending || total <= 0}
-            onClick={() =>
-              onSubmit({
-                cash: method === "cash" ? total : 0,
-                card: method === "card" ? total : 0,
-                transfer: method === "transfer" ? total : 0,
-              })
-            }
-          >
-            등록
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
-}
