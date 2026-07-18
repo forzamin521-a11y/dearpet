@@ -74,9 +74,8 @@ export const ALIMTALK_KIND_LABEL: Record<AlimtalkKind, string> = {
  */
 export const SELECTABLE_ALIMTALK: AlimtalkKind[] = ["basic", "deposit"];
 
-/** 상태 변경 시 자동 발송되는 알림톡 매핑 */
+/** 상태 변경 시 자동 발송되는 알림톡 매핑 (confirm은 basic으로 통합되어 제외) */
 export const STATUS_ALIMTALK: Partial<Record<ReservationStatus, AlimtalkKind>> = {
-  reserved: "confirm",
   finishing: "finishing",
   canceled: "cancel",
   no_show: "no_show",

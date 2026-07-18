@@ -41,34 +41,24 @@ export const SEND_TARGET_LABEL: Record<string, string> = {
   existing: "기존 고객만",
 };
 
-const EXTRA_INFO = (defaultValue: string): ShopVarDef => ({
-  key: "extraInfo",
-  label: "매장 안내문구",
-  placeholder: "예) 주차는 매장 앞 공영주차장을 이용해 주세요.",
-  defaultValue,
-});
-
 export const ALIMTALK_TEMPLATES: Record<AlimtalkKind, AlimtalkTemplateDef> = {
   basic: {
     kind: "basic",
-    body: "고객님,\n{{shopName}} 입니다.\n\n[예약] 안내드립니다.\n\n▷일시: {{visitDateTime}}\n▷반려동물명: {{petNames}}\n▷매장번호: {{shopPhone}}\n\n{{extraInfo}}",
-    shopVars: [
-      EXTRA_INFO("예약 변경·문의는 매장으로 연락 부탁드립니다."),
-    ],
+    body: "고객님,\n{{shopName}} 입니다.\n\n[예약] 안내드립니다.\n\n▷일시: {{visitDateTime}}\n▷반려동물명: {{petNames}}\n▷매장번호: {{shopPhone}}\n\n예약 변경·문의는 매장으로 연락 부탁드립니다.",
+    shopVars: [],
     autoVars: ["shopName", "shopPhone", "visitDateTime", "petNames"],
   },
+  // 현재 미사용 — 노령견은 동의서(consent) 발송으로 대체됨. 과거 발송 이력 표시용으로 유지.
   senior: {
     kind: "senior",
-    body: "고객님,\n{{shopName}} 입니다.\n\n노령견 미용 안내드립니다.\n7세 이상 반려동물은 미용 전 건강 상태를 꼭 알려주세요.\n\n▷일시: {{visitDateTime}}\n▷반려동물명: {{petNames}}\n\n{{extraInfo}}",
-    shopVars: [
-      EXTRA_INFO("질병·수술 이력이 있다면 방문 전 꼭 알려주세요."),
-    ],
+    body: "고객님,\n{{shopName}} 입니다.\n\n노령견 미용 안내드립니다.\n7세 이상 반려동물은 미용 전 건강 상태를 꼭 알려주세요.\n\n▷일시: {{visitDateTime}}\n▷반려동물명: {{petNames}}",
+    shopVars: [],
     autoVars: ["shopName", "visitDateTime", "petNames"],
   },
   consent: {
     kind: "consent",
-    body: "■동의서 작성 안내■\n\n고객님,\n{{shopName}}입니다.\n\n원활한 서비스 제공을 위해 아래 링크를 눌러 매장 방문 전 동의서를 꼭 작성해 주세요.\n\n▷예약 일시: {{visitDateTime}}\n▷반려동물명: {{petNames}}\n▷매장번호: {{shopPhone}}\n\n{{consentLink}}\n\n{{extraInfo}}",
-    shopVars: [EXTRA_INFO("")],
+    body: "■동의서 작성 안내■\n\n고객님,\n{{shopName}}입니다.\n\n원활한 서비스 제공을 위해 아래 링크를 눌러 매장 방문 전 동의서를 꼭 작성해 주세요.\n\n▷예약 일시: {{visitDateTime}}\n▷반려동물명: {{petNames}}\n▷매장번호: {{shopPhone}}\n\n{{consentLink}}",
+    shopVars: [],
     autoVars: [
       "shopName",
       "shopPhone",
@@ -77,15 +67,16 @@ export const ALIMTALK_TEMPLATES: Record<AlimtalkKind, AlimtalkTemplateDef> = {
       "consentLink",
     ],
   },
+  // 현재 미사용 — basic(기본 예약 안내)으로 통합됨. 과거 발송 이력 표시용으로 유지.
   confirm: {
     kind: "confirm",
-    body: "고객님,\n{{shopName}} 입니다.\n\n예약이 접수되었습니다.\n\n▷일시: {{visitDateTime}}\n▷반려동물명: {{petNames}}\n\n{{extraInfo}}",
-    shopVars: [EXTRA_INFO("")],
+    body: "고객님,\n{{shopName}} 입니다.\n\n예약이 접수되었습니다.\n\n▷일시: {{visitDateTime}}\n▷반려동물명: {{petNames}}",
+    shopVars: [],
     autoVars: ["shopName", "visitDateTime", "petNames"],
   },
   deposit: {
     kind: "deposit",
-    body: "고객님,\n∘{{shopName}}∘ 입니다.\n\n[예약금] 안내드립니다.\n\n▷일시: {{visitDateTime}}\n▷반려동물명: {{petNames}}\n▷매장번호: {{shopPhone}}\n\n[예약금 안내]\n계좌번호: {{bankAccount}}\n예약금: {{depositAmount}}\n\n{{depositPolicy}}\n\n{{extraInfo}}",
+    body: "고객님,\n∘{{shopName}}∘ 입니다.\n\n[예약금] 안내드립니다.\n\n▷일시: {{visitDateTime}}\n▷반려동물명: {{petNames}}\n▷매장번호: {{shopPhone}}\n\n[예약금 안내]\n계좌번호: {{bankAccount}}\n예약금: {{depositAmount}}\n\n{{depositPolicy}}\n\n반려견의 건강상태 또는 미용 트라우마가 있으면 미용 전 미리 말씀 부탁드립니다.",
     shopVars: [
       {
         key: "bankAccount",
@@ -107,41 +98,38 @@ export const ALIMTALK_TEMPLATES: Record<AlimtalkKind, AlimtalkTemplateDef> = {
           "* 상담 후 30분 이내 입금주셔야 예약이 확정됩니다.\n* 당일 예약 변경, 취소시 예약금 환불이 불가합니다.\n* 예약시간 20분 경과시 자동 취소되며, 예약금 환불이 불가합니다.\n* 미용비 결제는 예약금 차감 후 결제됩니다.",
         multiline: true,
       },
-      EXTRA_INFO(
-        "반려견의 건강상태 또는 미용 트라우마가 있으면 미용 전 미리 말씀 부탁드립니다."
-      ),
     ],
     autoVars: ["shopName", "shopPhone", "visitDateTime", "petNames"],
     targetSelectable: true,
   },
   pre_visit: {
     kind: "pre_visit",
-    body: "고객님,\n{{shopName}} 입니다.\n\n내일 예약 안내드립니다.\n\n▷일시: {{visitDateTime}}\n▷반려동물명: {{petNames}}\n\n{{extraInfo}}",
-    shopVars: [EXTRA_INFO("")],
+    body: "고객님,\n{{shopName}} 입니다.\n\n내일 예약 안내드립니다.\n\n▷일시: {{visitDateTime}}\n▷반려동물명: {{petNames}}",
+    shopVars: [],
     autoVars: ["shopName", "visitDateTime", "petNames"],
   },
   change: {
     kind: "change",
-    body: "고객님,\n{{shopName}} 입니다.\n\n예약이 변경되었습니다.\n\n▷변경된 일시: {{visitDateTime}}\n▷반려동물명: {{petNames}}\n\n{{extraInfo}}",
-    shopVars: [EXTRA_INFO("")],
+    body: "고객님,\n{{shopName}} 입니다.\n\n예약이 변경되었습니다.\n\n▷변경된 일시: {{visitDateTime}}\n▷반려동물명: {{petNames}}",
+    shopVars: [],
     autoVars: ["shopName", "visitDateTime", "petNames"],
   },
   cancel: {
     kind: "cancel",
-    body: "고객님,\n{{shopName}} 입니다.\n\n예약이 취소되었습니다.\n\n▷일시: {{visitDateTime}}\n▷반려동물명: {{petNames}}\n\n{{extraInfo}}",
-    shopVars: [EXTRA_INFO("")],
+    body: "고객님,\n{{shopName}} 입니다.\n\n예약이 취소되었습니다.\n\n▷일시: {{visitDateTime}}\n▷반려동물명: {{petNames}}",
+    shopVars: [],
     autoVars: ["shopName", "visitDateTime", "petNames"],
   },
   finishing: {
     kind: "finishing",
-    body: "고객님,\n{{shopName}} 입니다.\n\n미용이 곧 마무리됩니다. 픽업 부탁드립니다.\n\n▷반려동물명: {{petNames}}\n\n{{extraInfo}}",
-    shopVars: [EXTRA_INFO("")],
+    body: "고객님,\n{{shopName}} 입니다.\n\n미용이 곧 마무리됩니다. 픽업 부탁드립니다.\n\n▷반려동물명: {{petNames}}",
+    shopVars: [],
     autoVars: ["shopName", "petNames"],
   },
   no_show: {
     kind: "no_show",
-    body: "고객님,\n{{shopName}} 입니다.\n\n예약 시간에 방문하지 않으셔서 안내드립니다.\n\n▷일시: {{visitDateTime}}\n\n{{extraInfo}}",
-    shopVars: [EXTRA_INFO("")],
+    body: "고객님,\n{{shopName}} 입니다.\n\n예약 시간에 방문하지 않으셔서 안내드립니다.\n\n▷일시: {{visitDateTime}}",
+    shopVars: [],
     autoVars: ["shopName", "visitDateTime"],
   },
 };

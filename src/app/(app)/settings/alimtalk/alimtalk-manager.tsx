@@ -35,9 +35,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { formatKoreanDate, formatKoreanTime, todayString } from "@/lib/time";
 import type { AlimtalkKind, AlimtalkLog, AlimtalkTemplate } from "@/lib/types";
 
-const SELECT_KINDS: AlimtalkKind[] = ["basic", "senior", "consent"];
+// senior(노령견 안내)는 노령견 동의서 발송으로 대체되어 목록에서 제외
+const SELECT_KINDS: AlimtalkKind[] = ["basic", "consent"];
+// confirm(예약 접수)은 basic(기본 예약 안내)으로 통합되어 목록에서 제외
 const AUTO_KINDS: AlimtalkKind[] = [
-  "confirm",
   "deposit",
   "pre_visit",
   "change",
@@ -47,9 +48,8 @@ const AUTO_KINDS: AlimtalkKind[] = [
 ];
 
 const AUTO_KIND_DESC: Partial<Record<AlimtalkKind, string>> = {
-  confirm: "예약 접수(등록) 시 자동 발송됩니다.",
   deposit:
-    "예약 접수(등록) 시 자동 발송됩니다. 문구 편집에서 계좌번호·예약금과 발송 대상(모든 고객/신규만/기존만)을 설정하세요.",
+    "예약 등록 시 직접 선택해 발송하거나, 사용으로 켜면 자동 발송됩니다. 문구 편집에서 계좌번호·예약금과 자동 발송 대상(모든 고객/신규만/기존만)을 설정하세요.",
   pre_visit: "예약 전날 오후 6시에 다음 날 예약 고객에게 자동 발송됩니다.",
   change: "예약이 변경되었을 때 자동 발송됩니다.",
   cancel: "예약이 취소되었을 때 자동 발송됩니다.",
@@ -284,7 +284,7 @@ export function AlimtalkManager({
 
 /**
  * 알림톡 본문은 카카오 검수 승인 템플릿이라 수정할 수 없고,
- * 템플릿에 선언된 매장 변수({{extraInfo}} 등)의 값만 편집한다.
+ * 템플릿에 선언된 매장 변수(예약금 계좌번호/금액/정책 등)의 값만 편집한다.
  */
 function VariableEditDialog({
   kind,
