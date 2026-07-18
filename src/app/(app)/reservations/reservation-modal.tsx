@@ -20,9 +20,7 @@ import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
-  SelectGroup,
   SelectItem,
-  SelectLabel,
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
@@ -50,15 +48,14 @@ import {
   timeToMinutes,
 } from "@/lib/time";
 import type { ReservationFull } from "@/lib/data/reservations";
+import { cn } from "@/lib/utils";
 import type {
-  AddonItem,
   AlimtalkKind,
   ConsentForm,
   Customer,
-  GroomingProduct,
   Pet,
-  ProductOption,
   Profile,
+  Service,
 } from "@/lib/types";
 
 export interface ModalPrefill {
@@ -72,8 +69,7 @@ type CustomerWithPets = Customer & { pets: Pet[] };
 interface PetSelection {
   pet: Pet;
   selected: boolean;
-  optionId: string | null;
-  addons: AddonItem[];
+  serviceId: string | null;
 }
 
 interface NewPetDraft {
@@ -81,8 +77,7 @@ interface NewPetDraft {
   breed: string;
   weight: string;
   birth: string;
-  optionId: string | null;
-  addons: AddonItem[];
+  serviceId: string | null;
 }
 
 const EMPTY_NEW_PET: NewPetDraft = {
@@ -90,16 +85,14 @@ const EMPTY_NEW_PET: NewPetDraft = {
   breed: "",
   weight: "",
   birth: "",
-  optionId: null,
-  addons: [],
+  serviceId: null,
 };
 
 interface ReservationModalProps {
   prefill: ModalPrefill | null;
   editing: ReservationFull | null;
   staff: Profile[];
-  products: GroomingProduct[];
-  options: ProductOption[];
+  services: Service[];
   consentForms: ConsentForm[];
   dayReservations: ReservationFull[];
   onClose: () => void;
@@ -109,8 +102,7 @@ export function ReservationModal({
   prefill,
   editing,
   staff,
-  products,
-  options,
+  services,
   consentForms,
   dayReservations,
   onClose,
@@ -135,8 +127,7 @@ export function ReservationModal({
           .map((rp) => ({
             pet: rp.pet!,
             selected: true,
-            optionId: rp.product_option_id,
-            addons: rp.addons ?? [],
+            serviceId: rp.service_id,
           }))
       : []
   );
@@ -193,9 +184,9 @@ export function ReservationModal({
     }, 250);
   };
 
-  const optionById = useMemo(
-    () => new Map(options.map((o) => [o.id, o])),
-    [options]
+  const serviceById = useMemo(
+    () => new Map(services.map((s) => [s.id, s])),
+    [services]
   );
 
   // 노령견 여부 (라벨 표시용)
@@ -209,18 +200,18 @@ export function ReservationModal({
     );
   }, [mode, petSelections]);
 
-  /** 선택된 옵션들의 최대 소요시간(분) */
+  /** 선택된 서비스들의 최대 소요시간(분) */
   const computeMaxDuration = (
     selections: PetSelection[],
     drafts: NewPetDraft[]
   ) => {
     const ids =
       mode === "existing"
-        ? selections.filter((s) => s.selected).map((s) => s.optionId)
-        : drafts.map((p) => p.optionId);
+        ? selections.filter((s) => s.selected).map((s) => s.serviceId)
+        : drafts.map((p) => p.serviceId);
     const durations = ids
       .filter((id): id is string => !!id)
-      .map((id) => optionById.get(id)?.duration_minutes ?? 0);
+      .map((id) => serviceById.get(id)?.duration_minutes ?? 0);
     return durations.length > 0 ? Math.max(...durations) : 0;
   };
 
@@ -259,8 +250,7 @@ export function ReservationModal({
     const selections = c.pets.map((pet, i) => ({
       pet,
       selected: i === 0,
-      optionId: null,
-      addons: [],
+      serviceId: null,
     }));
     setPetSelections(selections);
     maybeAutoSenior(selections);
@@ -291,14 +281,13 @@ export function ReservationModal({
       toast.error("현재 고객의 반려동물 목록에 없는 기록입니다.");
       return;
     }
-    const optionValid = !!item.optionId && optionById.has(item.optionId);
+    const serviceValid = !!item.serviceId && serviceById.has(item.serviceId);
     const next = petSelections.map((s, j) =>
       j === idx
         ? {
             ...s,
             selected: true,
-            optionId: optionValid ? item.optionId : s.optionId,
-            addons: item.addons,
+            serviceId: serviceValid ? item.serviceId : s.serviceId,
           }
         : s
     );
@@ -306,9 +295,9 @@ export function ReservationModal({
     maybeAutoSenior(next);
     autoEnd(startTime, next, newPets);
     toast.success(
-      optionValid
+      serviceValid
         ? `${item.petName}에게 이전 서비스를 적용했습니다.`
-        : `${item.petName}을(를) 선택했습니다. (당시 상품이 삭제되어 서비스는 직접 선택해 주세요)`
+        : `${item.petName}을(를) 선택했습니다. (당시 서비스가 없어 직접 선택해 주세요)`
     );
   };
 
@@ -376,14 +365,7 @@ export function ReservationModal({
             customerId: customer.id,
             pets: petSelections
               .filter((s) => s.selected)
-              .map((s) => ({
-                petId: s.pet.id,
-                productOptionId: s.optionId,
-                price: s.optionId
-                  ? (optionById.get(s.optionId)?.price ?? null)
-                  : null,
-                addons: s.addons,
-              })),
+              .map((s) => ({ petId: s.pet.id, serviceId: s.serviceId })),
           },
           { notifyChange: true }
         );
@@ -393,14 +375,7 @@ export function ReservationModal({
           customerId: customer.id,
           pets: petSelections
             .filter((s) => s.selected)
-            .map((s) => ({
-              petId: s.pet.id,
-              productOptionId: s.optionId,
-              price: s.optionId
-                ? (optionById.get(s.optionId)?.price ?? null)
-                : null,
-              addons: s.addons,
-            })),
+            .map((s) => ({ petId: s.pet.id, serviceId: s.serviceId })),
         });
       } else {
         const validPets = newPets.filter((p) => p.name.trim());
@@ -413,13 +388,7 @@ export function ReservationModal({
             birth_date: p.birth || null,
           })),
           base,
-          validPets.map((p) => ({
-            productOptionId: p.optionId,
-            price: p.optionId
-              ? (optionById.get(p.optionId)?.price ?? null)
-              : null,
-            addons: p.addons,
-          }))
+          validPets.map((p) => ({ serviceId: p.serviceId }))
         );
       }
 
@@ -551,8 +520,6 @@ export function ReservationModal({
                                   <span className="min-w-0 truncate">
                                     🐾 {item.petName} ·{" "}
                                     {item.serviceLabel ?? "서비스 미지정"}
-                                    {item.addons.length > 0 &&
-                                      ` +${item.addons.map((a) => a.name).join(", ")}`}
                                     {item.price != null &&
                                       ` · ${item.price.toLocaleString()}원`}
                                   </span>
@@ -680,23 +647,16 @@ export function ReservationModal({
                           )}
                       </label>
                       {selection.selected && (
-                        <PetServiceFields
-                          products={products}
-                          options={options}
-                          optionId={selection.optionId}
-                          addons={selection.addons}
-                          onOptionChange={(optionId) => {
+                        <ServiceChips
+                          services={services}
+                          serviceId={selection.serviceId}
+                          onChange={(serviceId) => {
                             const next = petSelections.map((s, j) =>
-                              j === i ? { ...s, optionId } : s
+                              j === i ? { ...s, serviceId } : s
                             );
                             setPetSelections(next);
                             autoEnd(startTime, next, newPets);
                           }}
-                          onAddonsChange={(addons) =>
-                            setPetSelections((prev) =>
-                              prev.map((s, j) => (j === i ? { ...s, addons } : s))
-                            )
-                          }
                         />
                       )}
                     </CardContent>
@@ -754,23 +714,16 @@ export function ReservationModal({
                           }
                         />
                       </div>
-                      <PetServiceFields
-                        products={products}
-                        options={options}
-                        optionId={pet.optionId}
-                        addons={pet.addons}
-                        onOptionChange={(optionId) => {
+                      <ServiceChips
+                        services={services}
+                        serviceId={pet.serviceId}
+                        onChange={(serviceId) => {
                           const next = newPets.map((p, j) =>
-                            j === i ? { ...p, optionId } : p
+                            j === i ? { ...p, serviceId } : p
                           );
                           setNewPets(next);
                           autoEnd(startTime, petSelections, next);
                         }}
-                        onAddonsChange={(addons) =>
-                          setNewPets((prev) =>
-                            prev.map((p, j) => (j === i ? { ...p, addons } : p))
-                          )
-                        }
                       />
                     </CardContent>
                   </Card>
@@ -952,111 +905,47 @@ export function ReservationModal({
   );
 }
 
-/** 펫별 상품 옵션 + 추가 옵션 입력 */
-function PetServiceFields({
-  products,
-  options,
-  optionId,
-  addons,
-  onOptionChange,
-  onAddonsChange,
+/**
+ * 서비스 선택 칩. 한 번 더 누르면 해제된다.
+ * 선택한 서비스의 소요시간으로 종료시간이 자동 계산된다.
+ */
+function ServiceChips({
+  services,
+  serviceId,
+  onChange,
 }: {
-  products: GroomingProduct[];
-  options: ProductOption[];
-  optionId: string | null;
-  addons: AddonItem[];
-  onOptionChange: (optionId: string | null) => void;
-  onAddonsChange: (addons: AddonItem[]) => void;
+  services: Service[];
+  serviceId: string | null;
+  onChange: (serviceId: string | null) => void;
 }) {
-  const [addonName, setAddonName] = useState("");
-  const [addonPrice, setAddonPrice] = useState("");
-
-  const addAddon = () => {
-    if (!addonName.trim()) return;
-    onAddonsChange([
-      ...addons,
-      { name: addonName.trim(), price: addonPrice === "" ? 0 : Number(addonPrice) },
-    ]);
-    setAddonName("");
-    setAddonPrice("");
-  };
-
+  if (services.length === 0) {
+    return (
+      <p className="text-xs text-muted-foreground">
+        설정 → 미용 상품에서 서비스를 먼저 등록해 주세요.
+      </p>
+    );
+  }
   return (
-    <div className="space-y-2">
-      <Select
-        value={optionId ?? "none"}
-        onValueChange={(v) => onOptionChange(v === "none" ? null : v)}
-      >
-        <SelectTrigger className="w-full">
-          <SelectValue placeholder="미용 서비스 선택" />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="none">서비스 미지정</SelectItem>
-          {products.map((product) => {
-            const productOptions = options.filter(
-              (o) => o.product_id === product.id
-            );
-            if (productOptions.length === 0) return null;
-            return (
-              <SelectGroup key={product.id}>
-                <SelectLabel>
-                  {product.emoji} {product.name}
-                </SelectLabel>
-                {productOptions.map((option) => (
-                  <SelectItem key={option.id} value={option.id}>
-                    {option.name} ·{" "}
-                    {Math.floor(option.duration_minutes / 60) > 0
-                      ? `${Math.floor(option.duration_minutes / 60)}시간`
-                      : ""}
-                    {option.duration_minutes % 60 > 0
-                      ? `${option.duration_minutes % 60}분`
-                      : ""}
-                    {option.price != null &&
-                      ` · ${option.price.toLocaleString()}원`}
-                  </SelectItem>
-                ))}
-              </SelectGroup>
-            );
-          })}
-        </SelectContent>
-      </Select>
-
-      {addons.map((addon, i) => (
-        <div
-          key={i}
-          className="flex items-center justify-between rounded-md bg-muted px-2 py-1 text-sm"
-        >
-          <span>
-            추가&gt; {addon.name} ({addon.price.toLocaleString()}원)
-          </span>
-          <Button
-            size="icon-sm"
-            variant="ghost"
-            onClick={() => onAddonsChange(addons.filter((_, j) => j !== i))}
+    <div className="flex flex-wrap gap-1.5">
+      {services.map((service) => {
+        const active = serviceId === service.id;
+        return (
+          <button
+            key={service.id}
+            type="button"
+            onClick={() => onChange(active ? null : service.id)}
+            className={cn(
+              "rounded-full border px-3 py-1.5 text-sm transition-colors",
+              active
+                ? "border-primary bg-primary text-primary-foreground"
+                : "bg-secondary hover:bg-accent"
+            )}
           >
-            <X />
-          </Button>
-        </div>
-      ))}
-      <div className="flex gap-1.5">
-        <Input
-          className="h-8 flex-1 text-sm"
-          value={addonName}
-          onChange={(e) => setAddonName(e.target.value)}
-          placeholder="추가 옵션 (예: 얼컷)"
-        />
-        <Input
-          className="h-8 w-24 text-sm"
-          type="number"
-          step="1000"
-          value={addonPrice}
-          onChange={(e) => setAddonPrice(e.target.value)}
-          placeholder="가격"
-        />
-        <Button size="sm" variant="outline" onClick={addAddon}>
-          <Plus />
-        </Button>
-      </div>
+            {service.emoji}
+            {service.name}
+          </button>
+        );
+      })}
     </div>
   );
 }

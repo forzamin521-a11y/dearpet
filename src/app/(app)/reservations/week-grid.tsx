@@ -67,6 +67,12 @@ export function WeekGrid({
           {reservation.staff_id
             ? ` ${staffEmoji.get(reservation.staff_id) ?? ""}`
             : ""}
+          {reservation.status === "completed" &&
+            reservation.sales.length === 0 && (
+              <span className="ml-1 rounded bg-red-500 px-1 py-px text-[10px] font-bold text-white">
+                매출 미등록
+              </span>
+            )}
         </p>
         <p className="truncate opacity-80">
           {reservation.reservation_pets

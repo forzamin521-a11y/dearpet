@@ -61,115 +61,85 @@ export async function updateBoxSettings(
   return { ok: true };
 }
 
-// ---------------- 미용 상품 ----------------
+// ---------------- 미용 서비스 ----------------
 
-export async function createProduct(name: string, emoji: string): Promise<ActionResult> {
-  const ctx = await requireOwner();
-  if (!ctx) return { ok: false, error: "권한이 없습니다." };
-  if (!name.trim()) return { ok: false, error: "상품명을 입력해 주세요." };
-
-  const supabase = await createClient();
-  const { error } = await supabase.from("grooming_products").insert({
-    shop_id: ctx.shop!.id,
-    name: name.trim(),
-    emoji: emoji || "🐶",
-  });
-  if (error) return { ok: false, error: "등록에 실패했습니다." };
-  revalidatePath("/settings/products");
-  return { ok: true };
-}
-
-export async function updateProduct(
-  id: string,
-  data: { name: string; description: string; emoji: string }
-): Promise<ActionResult> {
-  const ctx = await requireOwner();
-  if (!ctx) return { ok: false, error: "권한이 없습니다." };
-
-  const supabase = await createClient();
-  const { error } = await supabase
-    .from("grooming_products")
-    .update(data)
-    .eq("id", id)
-    .eq("shop_id", ctx.shop!.id);
-  if (error) return { ok: false, error: "수정에 실패했습니다." };
-  revalidatePath("/settings/products");
-  return { ok: true };
-}
-
-export async function deleteProduct(id: string): Promise<ActionResult> {
-  const ctx = await requireOwner();
-  if (!ctx) return { ok: false, error: "권한이 없습니다." };
-
-  const supabase = await createClient();
-  const { error } = await supabase
-    .from("grooming_products")
-    .delete()
-    .eq("id", id)
-    .eq("shop_id", ctx.shop!.id);
-  if (error) return { ok: false, error: "삭제에 실패했습니다." };
-  revalidatePath("/settings/products");
-  return { ok: true };
-}
-
-export interface OptionInput {
+export interface ServiceInput {
   name: string;
+  emoji: string;
   duration_minutes: number;
-  price: number | null;
-  min_weight_kg: number | null;
-  max_weight_kg: number | null;
 }
 
-export async function createOption(
-  productId: string,
-  input: OptionInput
-): Promise<ActionResult> {
+export async function createService(input: ServiceInput): Promise<ActionResult> {
   const ctx = await requireOwner();
   if (!ctx) return { ok: false, error: "권한이 없습니다." };
-  if (!input.name.trim()) return { ok: false, error: "옵션명을 입력해 주세요." };
+  if (!input.name.trim()) return { ok: false, error: "서비스명을 입력해 주세요." };
+  if (input.duration_minutes <= 0) {
+    return { ok: false, error: "소요시간을 입력해 주세요." };
+  }
 
   const supabase = await createClient();
-  const { error } = await supabase.from("product_options").insert({
-    ...input,
-    name: input.name.trim(),
-    product_id: productId,
+  // 마지막 순서 뒤에 추가
+  const { data: last } = await supabase
+    .from("services")
+    .select("sort_order")
+    .eq("shop_id", ctx.shop!.id)
+    .order("sort_order", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  const { error } = await supabase.from("services").insert({
     shop_id: ctx.shop!.id,
+    name: input.name.trim(),
+    emoji: input.emoji,
+    duration_minutes: input.duration_minutes,
+    sort_order: (last?.sort_order ?? -1) + 1,
   });
   if (error) return { ok: false, error: "등록에 실패했습니다." };
   revalidatePath("/settings/products");
+  revalidatePath("/reservations");
   return { ok: true };
 }
 
-export async function updateOption(
+export async function updateService(
   id: string,
-  input: OptionInput
+  input: ServiceInput
 ): Promise<ActionResult> {
   const ctx = await requireOwner();
   if (!ctx) return { ok: false, error: "권한이 없습니다." };
+  if (!input.name.trim()) return { ok: false, error: "서비스명을 입력해 주세요." };
+  if (input.duration_minutes <= 0) {
+    return { ok: false, error: "소요시간을 입력해 주세요." };
+  }
 
   const supabase = await createClient();
   const { error } = await supabase
-    .from("product_options")
-    .update(input)
+    .from("services")
+    .update({
+      name: input.name.trim(),
+      emoji: input.emoji,
+      duration_minutes: input.duration_minutes,
+    })
     .eq("id", id)
     .eq("shop_id", ctx.shop!.id);
   if (error) return { ok: false, error: "수정에 실패했습니다." };
   revalidatePath("/settings/products");
+  revalidatePath("/reservations");
   return { ok: true };
 }
 
-export async function deleteOption(id: string): Promise<ActionResult> {
+export async function deleteService(id: string): Promise<ActionResult> {
   const ctx = await requireOwner();
   if (!ctx) return { ok: false, error: "권한이 없습니다." };
 
   const supabase = await createClient();
   const { error } = await supabase
-    .from("product_options")
+    .from("services")
     .delete()
     .eq("id", id)
     .eq("shop_id", ctx.shop!.id);
   if (error) return { ok: false, error: "삭제에 실패했습니다." };
   revalidatePath("/settings/products");
+  revalidatePath("/reservations");
   return { ok: true };
 }
 

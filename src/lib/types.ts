@@ -95,6 +95,17 @@ export interface Pet {
   created_at: string;
 }
 
+/** 미용 서비스 (예: 목욕 30분, 전체미용 2시간) — 가격은 완료 시 매출 등록에서 입력 */
+export interface Service {
+  id: string;
+  shop_id: string;
+  name: string;
+  emoji: string;
+  duration_minutes: number;
+  sort_order: number;
+  created_at: string;
+}
+
 export interface GroomingProduct {
   id: string;
   shop_id: string;

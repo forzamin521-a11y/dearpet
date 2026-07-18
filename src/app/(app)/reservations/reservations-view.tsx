@@ -28,13 +28,7 @@ import { Label } from "@/components/ui/label";
 import { saveDailyMemo } from "@/lib/actions/reservations";
 import { formatKoreanDate, toDateString, todayString } from "@/lib/time";
 import type { ReservationFull } from "@/lib/data/reservations";
-import type {
-  BoxSettings,
-  ConsentForm,
-  GroomingProduct,
-  ProductOption,
-  Profile,
-} from "@/lib/types";
+import type { BoxSettings, ConsentForm, Profile, Service } from "@/lib/types";
 import { DayGrid } from "./day-grid";
 import { WeekGrid } from "./week-grid";
 import { ReservationModal, type ModalPrefill } from "./reservation-modal";
@@ -56,8 +50,7 @@ interface ReservationsViewProps {
   view: "day" | "week";
   reservations: ReservationFull[];
   staff: Profile[];
-  products: GroomingProduct[];
-  options: ProductOption[];
+  services: Service[];
   consentForms: ConsentForm[];
   dailyMemo: string;
   permissions: CalendarPermissions;
@@ -289,8 +282,7 @@ export function ReservationsView(props: ReservationsViewProps) {
           prefill={modalPrefill}
           editing={editTarget}
           staff={props.staff}
-          products={props.products}
-          options={props.options}
+          services={props.services}
           consentForms={props.consentForms}
           dayReservations={props.reservations}
           onClose={() => {

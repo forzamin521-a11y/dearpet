@@ -200,6 +200,11 @@ function ReservationBox({
       >
         {status.label}
       </span>
+      {reservation.status === "completed" && reservation.sales.length === 0 && (
+        <span className="mb-0.5 ml-1 inline-block rounded bg-red-500 px-1 py-px text-[10px] font-bold text-white">
+          매출 미등록
+        </span>
+      )}
       {fields.customerName && (
         <p className="truncate font-semibold">
           {reservation.customer?.name ?? "고객"}

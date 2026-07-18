@@ -7,18 +7,11 @@ import { getAuthContext, hasPermission } from "@/lib/auth";
 import { sendAlimtalk, type AlimtalkContext } from "@/lib/messaging/send";
 import { STATUS_ALIMTALK } from "@/lib/constants";
 import type { ActionResult } from "./auth";
-import type {
-  AddonItem,
-  AlimtalkKind,
-  ReservationStatus,
-  SaleItem,
-} from "@/lib/types";
+import type { AlimtalkKind, ReservationStatus, SaleItem } from "@/lib/types";
 
 export interface ReservationPetInput {
   petId: string;
-  productOptionId: string | null;
-  price: number | null;
-  addons: AddonItem[];
+  serviceId: string | null;
 }
 
 export interface ReservationInput {
@@ -124,9 +117,7 @@ export async function createReservation(
     input.pets.map((p) => ({
       reservation_id: reservation.id,
       pet_id: p.petId,
-      product_option_id: p.productOptionId,
-      price: p.price,
-      addons: p.addons,
+      service_id: p.serviceId,
     }))
   );
   if (petsError) {
@@ -181,11 +172,7 @@ export async function createReservationWithNewCustomer(
     birth_date: string | null;
   }>,
   base: Omit<ReservationInput, "customerId" | "pets">,
-  petServices: Array<{
-    productOptionId: string | null;
-    price: number | null;
-    addons: AddonItem[];
-  }>
+  petServices: Array<{ serviceId: string | null }>
 ): Promise<ActionResult & { reservationId?: string }> {
   const ctx = await requireShop();
   if (!ctx) return { ok: false, error: "로그인이 필요합니다." };
@@ -237,9 +224,7 @@ export async function createReservationWithNewCustomer(
     customerId: newCustomer.id,
     pets: newPets.map((pet, i) => ({
       petId: pet.id,
-      productOptionId: petServices[i]?.productOptionId ?? null,
-      price: petServices[i]?.price ?? null,
-      addons: petServices[i]?.addons ?? [],
+      serviceId: petServices[i]?.serviceId ?? null,
     })),
   });
 }
@@ -249,11 +234,10 @@ export async function createReservationWithNewCustomer(
 export interface HistoryServiceItem {
   petId: string | null;
   petName: string;
-  optionId: string | null;
-  /** 예: "🐶전체미용 · 소형견" */
+  serviceId: string | null;
+  /** 예: "🐶전체미용" (구 데이터는 "전체미용 · 소형견" 형태) */
   serviceLabel: string | null;
   price: number | null;
-  addons: AddonItem[];
 }
 
 export interface CustomerHistoryEntry {
@@ -276,8 +260,9 @@ export async function getCustomerGroomingHistory(
     .from("reservations")
     .select(
       `id, date, status, memo,
-       reservation_pets(pet_id, product_option_id, price, addons,
+       reservation_pets(pet_id, service_id, price,
          pet:pets(name),
+         service:services(name, emoji),
          option:product_options(name, product:grooming_products(name, emoji)))`
     )
     .eq("shop_id", ctx.shop!.id)
@@ -294,10 +279,10 @@ export async function getCustomerGroomingHistory(
     memo: string;
     reservation_pets: Array<{
       pet_id: string | null;
-      product_option_id: string | null;
+      service_id: string | null;
       price: number | null;
-      addons: AddonItem[] | null;
       pet: { name: string } | null;
+      service: { name: string; emoji: string } | null;
       option: {
         name: string;
         product: { name: string; emoji: string } | null;
@@ -313,12 +298,13 @@ export async function getCustomerGroomingHistory(
     items: (r.reservation_pets ?? []).map((rp) => ({
       petId: rp.pet_id,
       petName: rp.pet?.name ?? "(삭제된 반려동물)",
-      optionId: rp.product_option_id,
-      serviceLabel: rp.option
-        ? `${rp.option.product?.emoji ?? ""}${rp.option.product?.name ?? ""} · ${rp.option.name}`
-        : null,
+      serviceId: rp.service_id,
+      serviceLabel: rp.service
+        ? `${rp.service.emoji}${rp.service.name}`
+        : rp.option
+          ? `${rp.option.product?.emoji ?? ""}${rp.option.product?.name ?? ""} · ${rp.option.name}`
+          : null,
       price: rp.price,
-      addons: rp.addons ?? [],
     })),
   }));
 }
@@ -384,9 +370,7 @@ export async function updateReservation(
     input.pets.map((p) => ({
       reservation_id: reservationId,
       pet_id: p.petId,
-      product_option_id: p.productOptionId,
-      price: p.price,
-      addons: p.addons,
+      service_id: p.serviceId,
     }))
   );
   if (petsError) return { ok: false, error: "예약 상세 저장에 실패했습니다." };
@@ -444,7 +428,10 @@ export async function updateReservationStatus(
   return { ok: true };
 }
 
-/** 예약 완료 시 매출 자동 생성 (이미 있으면 건너뜀) */
+/**
+ * 예약에서 매출 생성 (이미 있으면 건너뜀).
+ * 금액은 완료 시 입력받은 결제 금액(현금+카드+이체 합)을 사용한다.
+ */
 async function createSaleFromReservation(
   reservationId: string,
   payment: PaymentInput
@@ -456,16 +443,16 @@ async function createSaleFromReservation(
     .select("id")
     .eq("reservation_id", reservationId)
     .maybeSingle();
-  if (existing) return { ok: true };
+  if (existing) return { ok: false, error: "이미 매출이 등록된 예약입니다." };
 
   const { data: reservation } = await admin
     .from("reservations")
     .select(
       `id, shop_id, customer_id, staff_id, date,
        reservation_pets(
-         price, addons,
          pet:pets(name),
-         option:product_options(name, price, product:grooming_products(name))
+         service:services(name, emoji),
+         option:product_options(name, product:grooming_products(name))
        )`
     )
     .eq("id", reservationId)
@@ -473,33 +460,25 @@ async function createSaleFromReservation(
   if (!reservation) return { ok: false, error: "예약을 찾을 수 없습니다." };
 
   const pets = (reservation.reservation_pets ?? []) as unknown as Array<{
-    price: number | null;
-    addons: AddonItem[];
     pet: { name: string } | null;
-    option: {
-      name: string;
-      price: number | null;
-      product: { name: string } | null;
-    } | null;
+    service: { name: string; emoji: string } | null;
+    option: { name: string; product: { name: string } | null } | null;
   }>;
 
-  const items: SaleItem[] = pets.map((p) => {
-    const base = p.price ?? p.option?.price ?? 0;
-    const addonTotal = (p.addons ?? []).reduce((sum, a) => sum + a.price, 0);
-    const parts = [
-      p.option
-        ? `${p.option.product?.name ?? ""}> ${p.option.name}`
-        : "서비스 미지정",
-      ...(p.addons ?? []).map((a) => `추가> ${a.name}`),
-    ];
-    return {
-      petName: p.pet?.name ?? "",
-      description: parts.join(", "),
-      amount: base + addonTotal,
-    };
-  });
+  const total = payment.cash + payment.card + payment.transfer;
+  if (total <= 0) return { ok: false, error: "결제 금액을 입력해 주세요." };
 
-  const total = items.reduce((sum, item) => sum + item.amount, 0);
+  // 반려동물별 서비스 내역 — 금액은 총액을 첫 항목에 기재
+  const items: SaleItem[] = pets.map((p, i) => ({
+    petName: p.pet?.name ?? "",
+    description:
+      (p.service
+        ? `${p.service.emoji}${p.service.name}`
+        : p.option
+          ? `${p.option.product?.name ?? ""}> ${p.option.name}`
+          : "서비스 미지정"),
+    amount: i === 0 ? total : 0,
+  }));
 
   const { error } = await admin.from("sales").insert({
     shop_id: reservation.shop_id,
@@ -514,6 +493,32 @@ async function createSaleFromReservation(
     transfer_amount: payment.transfer,
   });
   if (error) return { ok: false, error: "매출 등록에 실패했습니다." };
+  return { ok: true };
+}
+
+/** 완료된 예약에 나중에 매출을 등록할 때 사용 */
+export async function registerSaleForReservation(
+  reservationId: string,
+  payment: PaymentInput
+): Promise<ActionResult> {
+  const ctx = await requireShop();
+  if (!ctx) return { ok: false, error: "로그인이 필요합니다." };
+
+  // 내 매장 예약인지 확인
+  const supabase = await createClient();
+  const { data: reservation } = await supabase
+    .from("reservations")
+    .select("id")
+    .eq("id", reservationId)
+    .eq("shop_id", ctx.shop!.id)
+    .single();
+  if (!reservation) return { ok: false, error: "예약을 찾을 수 없습니다." };
+
+  const result = await createSaleFromReservation(reservationId, payment);
+  if (!result.ok) return result;
+
+  revalidatePath("/reservations");
+  revalidatePath("/sales");
   return { ok: true };
 }
 

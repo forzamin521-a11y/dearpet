@@ -1,9 +1,12 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { useState, useTransition } from "react";
 import { toast } from "sonner";
-import { Pencil } from "lucide-react";
-import { updateReservationStatus } from "@/lib/actions/reservations";
+import { Pencil, Receipt } from "lucide-react";
+import {
+  registerSaleForReservation,
+  updateReservationStatus,
+} from "@/lib/actions/reservations";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -72,20 +75,16 @@ export function ReservationDetail({
   onEdit: () => void;
 }) {
   const [pending, startTransition] = useTransition();
-  const [paymentOpen, setPaymentOpen] = useState(false);
+  // 완료 시: confirm(매출 등록할까요?) → payment(금액/수단 입력)
+  const [saleConfirmOpen, setSaleConfirmOpen] = useState(false);
+  const [paymentMode, setPaymentMode] = useState<"complete" | "later" | null>(
+    null
+  );
   const [confirmStatus, setConfirmStatus] = useState<ReservationStatus | null>(
     null
   );
 
-  const totalAmount = useMemo(
-    () =>
-      reservation.reservation_pets.reduce((sum, rp) => {
-        const base = rp.price ?? rp.option?.price ?? 0;
-        const addonTotal = (rp.addons ?? []).reduce((s, a) => s + a.price, 0);
-        return sum + base + addonTotal;
-      }, 0),
-    [reservation]
-  );
+  const hasSale = reservation.sales.length > 0;
 
   const canChangeTo = (status: ReservationStatus): boolean => {
     if (status === "canceled") return permissions.cancel;
@@ -107,9 +106,26 @@ export function ReservationDetail({
         toast.success(
           `'${RESERVATION_STATUS[status].label}' 상태로 변경되었습니다.`
         );
-        setPaymentOpen(false);
+        setPaymentMode(null);
         setConfirmStatus(null);
         if (status === "deleted") onClose();
+      } else {
+        toast.error(result.error);
+      }
+    });
+  };
+
+  /** 완료된 예약에 나중에 매출 등록 */
+  const registerSale = (payment: {
+    cash: number;
+    card: number;
+    transfer: number;
+  }) => {
+    startTransition(async () => {
+      const result = await registerSaleForReservation(reservation.id, payment);
+      if (result.ok) {
+        toast.success("매출이 등록되었습니다.");
+        setPaymentMode(null);
       } else {
         toast.error(result.error);
       }
@@ -124,7 +140,7 @@ export function ReservationDetail({
       return;
     }
     if (status === "completed") {
-      setPaymentOpen(true);
+      setSaleConfirmOpen(true);
     } else if (status === "deleted" || status === "canceled") {
       setConfirmStatus(status);
     } else {
@@ -180,6 +196,18 @@ export function ReservationDetail({
             )}
           </div>
 
+          {/* 완료됐지만 매출 미등록 → 눈에 띄게 안내 */}
+          {reservation.status === "completed" && !hasSale && (
+            <div className="flex items-center justify-between gap-2 rounded-lg border border-orange-300 bg-orange-50 p-3">
+              <p className="text-sm font-medium text-orange-700">
+                ⚠️ 매출이 아직 등록되지 않았습니다.
+              </p>
+              <Button size="sm" onClick={() => setPaymentMode("later")}>
+                <Receipt /> 매출 등록
+              </Button>
+            </div>
+          )}
+
           {/* 일정 */}
           <div className="rounded-lg bg-secondary p-3 text-sm">
             <p className="font-semibold">
@@ -214,67 +242,42 @@ export function ReservationDetail({
           {/* 반려동물 + 서비스 */}
           <section className="space-y-3">
             <p className="text-sm font-semibold">반려동물 & 서비스</p>
-            {reservation.reservation_pets.map((rp) => {
-              const base = rp.price ?? rp.option?.price ?? 0;
-              const addonTotal = (rp.addons ?? []).reduce(
-                (s, a) => s + a.price,
-                0
-              );
-              return (
-                <div key={rp.id} className="rounded-lg border p-3 text-sm">
-                  <p className="font-medium">
-                    🐾 {rp.pet?.name}
-                    {rp.pet?.breed && ` (${rp.pet.breed})`}
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    {rp.pet?.birth_date &&
-                      `${formatAge(rp.pet.birth_date)}${
-                        ageInYears(rp.pet.birth_date) >= 7 ? " · 노령견" : ""
-                      }`}
-                    {rp.pet?.weight_kg != null && ` · ${rp.pet.weight_kg}kg`}
-                    {rp.pet?.neutered != null &&
-                      ` · 중성화 ${rp.pet.neutered ? "O" : "X"}`}
-                  </p>
-                  <div className="mt-2 space-y-0.5">
-                    <p>
-                      {rp.option
-                        ? `${rp.option.product?.emoji ?? ""} ${
-                            rp.option.product?.name ?? ""
-                          } > ${rp.option.name}`
-                        : "서비스 미지정"}
-                      {base > 0 && (
-                        <span className="float-right">
-                          {base.toLocaleString()}원
-                        </span>
-                      )}
-                    </p>
-                    {(rp.addons ?? []).map((addon, i) => (
-                      <p key={i} className="text-muted-foreground">
-                        추가&gt; {addon.name}
-                        <span className="float-right">
-                          {addon.price.toLocaleString()}원
-                        </span>
-                      </p>
-                    ))}
-                  </div>
-                  {rp.pet?.memo && (
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      📝 {rp.pet.memo}
-                    </p>
+            {reservation.reservation_pets.map((rp) => (
+              <div key={rp.id} className="rounded-lg border p-3 text-sm">
+                <p className="font-medium">
+                  🐾 {rp.pet?.name}
+                  {rp.pet?.breed && ` (${rp.pet.breed})`}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  {rp.pet?.birth_date &&
+                    `${formatAge(rp.pet.birth_date)}${
+                      ageInYears(rp.pet.birth_date) >= 7 ? " · 노령견" : ""
+                    }`}
+                  {rp.pet?.weight_kg != null && ` · ${rp.pet.weight_kg}kg`}
+                  {rp.pet?.neutered != null &&
+                    ` · 중성화 ${rp.pet.neutered ? "O" : "X"}`}
+                </p>
+                <p className="mt-2">
+                  {rp.service ? (
+                    <span className="inline-flex items-center rounded-full border bg-secondary px-2.5 py-0.5 font-medium">
+                      {rp.service.emoji}
+                      {rp.service.name}
+                    </span>
+                  ) : rp.option ? (
+                    `${rp.option.product?.emoji ?? ""} ${
+                      rp.option.product?.name ?? ""
+                    } > ${rp.option.name}`
+                  ) : (
+                    "서비스 미지정"
                   )}
-                  {addonTotal + base > 0 && (
-                    <p className="mt-2 border-t pt-1 text-right font-medium">
-                      {(base + addonTotal).toLocaleString()}원
-                    </p>
-                  )}
-                </div>
-              );
-            })}
-            {totalAmount > 0 && (
-              <p className="text-right text-sm font-bold">
-                합계 {totalAmount.toLocaleString()}원
-              </p>
-            )}
+                </p>
+                {rp.pet?.memo && (
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    📝 {rp.pet.memo}
+                  </p>
+                )}
+              </div>
+            ))}
           </section>
 
           {reservation.memo && (
@@ -291,13 +294,50 @@ export function ReservationDetail({
         </div>
       </SheetContent>
 
-      {/* 완료 → 결제 다이얼로그 */}
-      {paymentOpen && (
+      {/* 완료 → 매출 등록 여부 확인 */}
+      <AlertDialog open={saleConfirmOpen} onOpenChange={setSaleConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>매출을 등록하시겠습니까?</AlertDialogTitle>
+            <AlertDialogDescription>
+              지금 등록하면 결제 수단과 금액을 입력합니다. &apos;나중에&apos;를
+              선택하면 완료 처리만 되고, 예약에 매출 미등록 표시가 남습니다.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>닫기</AlertDialogCancel>
+            <Button
+              variant="outline"
+              disabled={pending}
+              onClick={() => {
+                setSaleConfirmOpen(false);
+                applyStatus("completed");
+              }}
+            >
+              나중에
+            </Button>
+            <AlertDialogAction
+              onClick={() => {
+                setSaleConfirmOpen(false);
+                setPaymentMode("complete");
+              }}
+            >
+              네, 등록할게요
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* 결제 수단/금액 입력 */}
+      {paymentMode && (
         <PaymentDialog
-          totalAmount={totalAmount}
           pending={pending}
-          onClose={() => setPaymentOpen(false)}
-          onSubmit={(payment) => applyStatus("completed", payment)}
+          onClose={() => setPaymentMode(null)}
+          onSubmit={(payment) =>
+            paymentMode === "complete"
+              ? applyStatus("completed", payment)
+              : registerSale(payment)
+          }
         />
       )}
 
@@ -333,94 +373,76 @@ export function ReservationDetail({
   );
 }
 
-/** 완료 처리 시 결제수단 입력 → 매출 자동 등록 */
+type PayMethod = "card" | "cash" | "transfer";
+
+const PAY_METHOD_LABEL: Record<PayMethod, string> = {
+  card: "카드결제",
+  cash: "현금",
+  transfer: "계좌이체",
+};
+
+/** 매출 등록: 결제 수단 선택 + 금액 입력 */
 function PaymentDialog({
-  totalAmount,
   pending,
   onClose,
   onSubmit,
 }: {
-  totalAmount: number;
   pending: boolean;
   onClose: () => void;
   onSubmit: (payment: { cash: number; card: number; transfer: number }) => void;
 }) {
-  const [cash, setCash] = useState("0");
-  const [card, setCard] = useState(String(totalAmount));
-  const [transfer, setTransfer] = useState("0");
+  const [method, setMethod] = useState<PayMethod>("card");
+  const [amount, setAmount] = useState("");
 
-  const sum = Number(cash || 0) + Number(card || 0) + Number(transfer || 0);
-
-  const fillAll = (method: "cash" | "card" | "transfer") => {
-    setCash(method === "cash" ? String(totalAmount) : "0");
-    setCard(method === "card" ? String(totalAmount) : "0");
-    setTransfer(method === "transfer" ? String(totalAmount) : "0");
-  };
+  const total = Number(amount || 0);
 
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="sm:max-w-sm">
         <DialogHeader>
-          <DialogTitle>완료 처리 & 매출 등록</DialogTitle>
+          <DialogTitle>매출 등록</DialogTitle>
         </DialogHeader>
         <div className="space-y-4">
-          <p className="text-sm text-muted-foreground">
-            상품 금액 합계:{" "}
-            <span className="font-bold text-foreground">
-              {totalAmount.toLocaleString()}원
-            </span>
-          </p>
-          <div className="flex gap-2">
-            <Button size="sm" variant="outline" onClick={() => fillAll("card")}>
-              전액 카드
-            </Button>
-            <Button size="sm" variant="outline" onClick={() => fillAll("cash")}>
-              전액 현금
-            </Button>
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => fillAll("transfer")}
-            >
-              전액 이체
-            </Button>
-          </div>
-          <div className="grid grid-cols-3 gap-2">
-            <div className="space-y-1">
-              <Label className="text-xs">현금</Label>
-              <Input
-                type="number"
-                value={cash}
-                onChange={(e) => setCash(e.target.value)}
-              />
-            </div>
-            <div className="space-y-1">
-              <Label className="text-xs">카드</Label>
-              <Input
-                type="number"
-                value={card}
-                onChange={(e) => setCard(e.target.value)}
-              />
-            </div>
-            <div className="space-y-1">
-              <Label className="text-xs">계좌이체</Label>
-              <Input
-                type="number"
-                value={transfer}
-                onChange={(e) => setTransfer(e.target.value)}
-              />
+          <div className="space-y-1.5">
+            <Label className="text-xs">결제 수단</Label>
+            <div className="flex gap-2">
+              {(Object.keys(PAY_METHOD_LABEL) as PayMethod[]).map((m) => (
+                <button
+                  key={m}
+                  type="button"
+                  onClick={() => setMethod(m)}
+                  className={cn(
+                    "flex-1 rounded-lg border px-3 py-2 text-sm transition-colors",
+                    method === m
+                      ? "border-primary bg-primary text-primary-foreground"
+                      : "hover:bg-accent"
+                  )}
+                >
+                  {PAY_METHOD_LABEL[m]}
+                </button>
+              ))}
             </div>
           </div>
-          <p className="text-right text-sm">
-            결제 합계:{" "}
-            <span
-              className={cn(
-                "font-bold",
-                sum !== totalAmount && "text-orange-600"
-              )}
-            >
-              {sum.toLocaleString()}원
-            </span>
+          <div className="space-y-1.5">
+            <Label className="text-xs">금액</Label>
+            <Input
+              type="number"
+              step="1000"
+              min="0"
+              autoFocus
+              value={amount}
+              onChange={(e) => setAmount(e.target.value)}
+              placeholder="예: 50000"
+            />
+            {total > 0 && (
+              <p className="text-right text-sm font-bold text-primary">
+                {total.toLocaleString()}원 ({PAY_METHOD_LABEL[method]})
+              </p>
+            )}
+          </div>
+          <p className="text-xs text-muted-foreground">
+            카드+현금처럼 나눠 결제한 경우, 등록 후 매출 페이지에서 상세 수정할
+            수 있습니다.
           </p>
         </div>
         <DialogFooter>
@@ -428,16 +450,16 @@ function PaymentDialog({
             취소
           </Button>
           <Button
-            disabled={pending}
+            disabled={pending || total <= 0}
             onClick={() =>
               onSubmit({
-                cash: Number(cash || 0),
-                card: Number(card || 0),
-                transfer: Number(transfer || 0),
+                cash: method === "cash" ? total : 0,
+                card: method === "card" ? total : 0,
+                transfer: method === "transfer" ? total : 0,
               })
             }
           >
-            완료 처리
+            등록
           </Button>
         </DialogFooter>
       </DialogContent>

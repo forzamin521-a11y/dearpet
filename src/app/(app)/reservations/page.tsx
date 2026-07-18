@@ -4,12 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getAuthContext, hasPermission } from "@/lib/auth";
 import { getReservations } from "@/lib/data/reservations";
 import { todayString, toDateString } from "@/lib/time";
-import type {
-  ConsentForm,
-  GroomingProduct,
-  ProductOption,
-  Profile,
-} from "@/lib/types";
+import type { ConsentForm, Profile, Service } from "@/lib/types";
 import { ReservationsView } from "./reservations-view";
 
 export const metadata: Metadata = { title: "예약" };
@@ -42,7 +37,7 @@ export default async function ReservationsPage({
   }
 
   const supabase = await createClient();
-  const [reservations, staffRes, productsRes, optionsRes, formsRes, memoRes] =
+  const [reservations, staffRes, servicesRes, formsRes, memoRes] =
     await Promise.all([
       getReservations(shop.id, fromDate, toDate),
       supabase
@@ -53,13 +48,7 @@ export default async function ReservationsPage({
         .order("role")
         .order("created_at"),
       supabase
-        .from("grooming_products")
-        .select("*")
-        .eq("shop_id", shop.id)
-        .order("sort_order")
-        .order("created_at"),
-      supabase
-        .from("product_options")
+        .from("services")
         .select("*")
         .eq("shop_id", shop.id)
         .order("sort_order")
@@ -87,8 +76,7 @@ export default async function ReservationsPage({
       view={view}
       reservations={reservations}
       staff={(staffRes.data ?? []) as Profile[]}
-      products={(productsRes.data ?? []) as GroomingProduct[]}
-      options={(optionsRes.data ?? []) as ProductOption[]}
+      services={(servicesRes.data ?? []) as Service[]}
       consentForms={(formsRes.data ?? []) as ConsentForm[]}
       dailyMemo={memoRes.data?.memo ?? ""}
       permissions={{

@@ -14,13 +14,23 @@ export interface ReservationFull extends Reservation {
     Customer,
     "id" | "name" | "phones" | "memo" | "alimtalk_opt_in"
   > | null;
+  /** 연결된 매출 (완료 후 매출 등록 여부 판단용) */
+  sales: Array<{ id: string }>;
   reservation_pets: Array<{
     id: string;
     pet_id: string;
     product_option_id: string | null;
+    service_id: string | null;
     price: number | null;
     addons: AddonItem[];
     pet: Pet | null;
+    service: {
+      id: string;
+      name: string;
+      emoji: string;
+      duration_minutes: number;
+    } | null;
+    /** 구 상품>옵션 구조 (과거 예약 표시용) */
     option: {
       id: string;
       name: string;
@@ -34,9 +44,11 @@ export interface ReservationFull extends Reservation {
 const RESERVATION_SELECT = `
   *,
   customer:customers(id, name, phones, memo, alimtalk_opt_in),
+  sales(id),
   reservation_pets(
-    id, pet_id, product_option_id, price, addons,
+    id, pet_id, product_option_id, service_id, price, addons,
     pet:pets(*),
+    service:services(id, name, emoji, duration_minutes),
     option:product_options(id, name, duration_minutes, price,
       product:grooming_products(name, emoji))
   )

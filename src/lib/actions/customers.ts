@@ -218,7 +218,9 @@ export async function getCustomerDetail(
       .select(
         `id, date, start_time, status, memo,
          staff:profiles!reservations_staff_id_fkey(name, emoji),
-         reservation_pets(pet:pets(name), option:product_options(name, product:grooming_products(name, emoji)))`
+         reservation_pets(pet:pets(name),
+           service:services(name, emoji),
+           option:product_options(name, product:grooming_products(name, emoji)))`
       )
       .eq("shop_id", ctx.shop!.id)
       .eq("customer_id", customerId)
@@ -251,6 +253,7 @@ export async function getCustomerDetail(
     staff: { name: string; emoji: string } | null;
     reservation_pets: Array<{
       pet: { name: string } | null;
+      service: { name: string; emoji: string } | null;
       option: { name: string; product: { name: string; emoji: string } | null } | null;
     }>;
   };
@@ -269,9 +272,11 @@ export async function getCustomerDetail(
       ...new Set(
         r.reservation_pets
           .map((rp) =>
-            rp.option
-              ? `${rp.option.product?.emoji ?? ""}${rp.option.product?.name ?? ""}`
-              : null
+            rp.service
+              ? `${rp.service.emoji}${rp.service.name}`
+              : rp.option
+                ? `${rp.option.product?.emoji ?? ""}${rp.option.product?.name ?? ""}`
+                : null
           )
           .filter(Boolean) as string[]
       ),
