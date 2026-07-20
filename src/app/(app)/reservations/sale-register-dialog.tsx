@@ -194,7 +194,7 @@ export function SaleRegisterDialog({
           </div>
 
           {/* 중: 상품 목록 */}
-          <div className="flex min-h-0 flex-1 flex-col gap-2 sm:overflow-hidden">
+          <div className="flex flex-col gap-2 sm:min-h-0 sm:flex-1 sm:overflow-hidden">
             <div className="relative">
               <Search className="absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
               <Input
@@ -204,7 +204,7 @@ export function SaleRegisterDialog({
                 placeholder="상품명으로 검색 (전체에서 찾기)"
               />
             </div>
-            <div className="max-h-64 space-y-4 overflow-y-auto rounded-lg border p-3 sm:max-h-none sm:flex-1">
+            <div className="space-y-4 rounded-lg border p-3 sm:min-h-0 sm:flex-1 sm:overflow-y-auto">
               {groups === null && (
                 <p className="py-8 text-center text-sm text-muted-foreground">
                   상품을 불러오는 중...
