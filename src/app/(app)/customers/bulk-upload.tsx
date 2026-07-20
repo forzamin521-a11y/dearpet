@@ -24,13 +24,13 @@ const TEMPLATE_HEADERS = [
   "종",
   "품종",
   "몸무게(kg)",
-  "생년월일",
+  "나이",
   "반려동물메모",
 ] as const;
 
 const EXAMPLE_ROWS = [
-  ["솜이맘", "010-1234-5678", "단골", "솜이", "강아지", "푸들", 4.2, "2021-03-15", "겁이 많아요"],
-  ["솜이맘", "010-1234-5678", "", "구름", "고양이", "코숏", 3.8, "2022-07-01", ""],
+  ["솜이맘", "010-1234-5678", "단골", "솜이", "강아지", "푸들", 4.2, 5, "겁이 많아요"],
+  ["솜이맘", "010-1234-5678", "", "구름", "고양이", "코숏", 3.8, 3, ""],
   ["초코아빠", "010-9876-5432", "", "초코", "강아지", "말티즈", 2.9, "", ""],
 ];
 
@@ -53,19 +53,6 @@ function normalizePhone(value: string): string {
   return value.trim();
 }
 
-function normalizeDate(value: string): string | null {
-  const trimmed = value.trim();
-  if (!trimmed) return null;
-  const m = trimmed.match(/(\d{4})[.\-/](\d{1,2})[.\-/](\d{1,2})/);
-  if (m) {
-    return `${m[1]}-${m[2].padStart(2, "0")}-${m[3].padStart(2, "0")}`;
-  }
-  const d = new Date(trimmed);
-  if (!isNaN(d.getTime()) && d.getFullYear() > 1900 && d.getFullYear() < 2100) {
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-  }
-  return null;
-}
 
 export function BulkUpload() {
   const fileRef = useRef<HTMLInputElement>(null);
@@ -117,7 +104,7 @@ export function BulkUpload() {
         species: findCol(headers, "종"),
         breed: findCol(headers, "품종", "견종", "묘종"),
         weight: findCol(headers, "몸무게", "체중"),
-        birth: findCol(headers, "생년월일", "생일", "출생"),
+        age: findCol(headers, "나이", "연령"),
         petMemo: findCol(headers, "반려동물메모", "펫메모", "동물메모"),
       };
       if (col.name < 0) {
@@ -133,6 +120,7 @@ export function BulkUpload() {
         .filter((row) => get(row, col.name))
         .map((row) => {
           const weight = parseFloat(get(row, col.weight));
+          const age = parseInt(get(row, col.age), 10);
           return {
             name: get(row, col.name),
             phone: normalizePhone(get(row, col.phone)),
@@ -141,7 +129,7 @@ export function BulkUpload() {
             species: get(row, col.species),
             breed: get(row, col.breed),
             weightKg: isNaN(weight) ? null : weight,
-            birthDate: normalizeDate(get(row, col.birth)),
+            ageYears: isNaN(age) ? null : age,
             petMemo: get(row, col.petMemo),
           };
         });

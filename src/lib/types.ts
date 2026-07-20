@@ -89,8 +89,9 @@ export interface Pet {
   species: PetSpecies;
   breed: string;
   weight_kg: number | null;
-  birth_date: string | null;
-  neutered: boolean | null;
+  age_years: number | null;
+  /** 마킹(영역표시) 여부 — true: O, false: X, null: 모름 */
+  marking: boolean | null;
   memo: string;
   created_at: string;
 }

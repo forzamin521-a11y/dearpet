@@ -13,8 +13,8 @@ export interface PetInput {
   species: PetSpecies;
   breed: string;
   weight_kg: number | null;
-  birth_date: string | null;
-  neutered: boolean | null;
+  age_years: number | null;
+  marking: boolean | null;
   memo: string;
 }
 
@@ -74,8 +74,8 @@ export async function createCustomer(
           species: p.species,
           breed: p.breed,
           weight_kg: p.weight_kg,
-          birth_date: p.birth_date,
-          neutered: p.neutered,
+          age_years: p.age_years,
+          marking: p.marking,
           memo: p.memo,
         }))
     );
@@ -115,8 +115,8 @@ export async function updateCustomer(
       species: pet.species,
       breed: pet.breed,
       weight_kg: pet.weight_kg,
-      birth_date: pet.birth_date,
-      neutered: pet.neutered,
+      age_years: pet.age_years,
+      marking: pet.marking,
       memo: pet.memo,
     };
     if (pet.id) {
@@ -382,7 +382,7 @@ export interface BulkCustomerRow {
   species: string; // "강아지" | "고양이" | "dog" | "cat" (그 외는 dog 처리)
   breed: string;
   weightKg: number | null;
-  birthDate: string | null; // YYYY-MM-DD
+  ageYears: number | null;
   petMemo: string;
 }
 
@@ -439,7 +439,7 @@ export async function bulkCreateCustomers(
         species: row.species,
         breed: row.breed,
         weightKg: row.weightKg,
-        birthDate: row.birthDate,
+        ageYears: row.ageYears,
         petMemo: row.petMemo,
       });
     }
@@ -479,7 +479,7 @@ export async function bulkCreateCustomers(
         : "dog") as PetSpecies,
       breed: p.breed.trim(),
       weight_kg: p.weightKg,
-      birth_date: p.birthDate,
+      age_years: p.ageYears,
       memo: p.petMemo.trim(),
     }))
   );

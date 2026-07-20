@@ -39,6 +39,8 @@ const PAY_METHOD_LABEL: Record<PayMethod, string> = {
   transfer: "계좌이체",
 };
 
+const PAY_METHODS = Object.keys(PAY_METHOD_LABEL) as PayMethod[];
+
 interface SelectedItem {
   key: number;
   name: string;
@@ -75,7 +77,12 @@ export function SaleRegisterDialog({
   const [query, setQuery] = useState("");
   const [selected, setSelected] = useState<SelectedItem[]>([]);
   const [discount, setDiscount] = useState("");
-  const [method, setMethod] = useState<PayMethod>("card");
+  // 결제 수단별 금액 (여러 수단으로 나눠 결제 가능, 예: 현금 20,000 + 카드 30,000)
+  const [payAmounts, setPayAmounts] = useState<Record<PayMethod, string>>({
+    card: "",
+    cash: "",
+    transfer: "",
+  });
   const [customName, setCustomName] = useState("");
   const [customPrice, setCustomPrice] = useState("");
   const keyRef = useState(() => ({ next: 1 }))[0];
@@ -117,6 +124,20 @@ export function SaleRegisterDialog({
   const discountAmount = Math.max(0, Number(discount || 0));
   const total = Math.max(0, subtotal - discountAmount);
 
+  const paidAmount = (m: PayMethod) => Number(payAmounts[m] || 0);
+  const paidSum = PAY_METHODS.reduce((sum, m) => sum + paidAmount(m), 0);
+  const remaining = total - paidSum;
+  const paymentMatches = total > 0 && paidSum === total;
+
+  /** 이 수단에 남은 금액을 채워 넣는다 (나눠 결제 시 마지막 수단에 유용) */
+  const fillRemaining = (m: PayMethod) => {
+    const others = paidSum - paidAmount(m);
+    setPayAmounts((prev) => ({
+      ...prev,
+      [m]: String(Math.max(0, total - others)),
+    }));
+  };
+
   const submit = () => {
     const items: SaleItem[] = selected.map((s) => ({
       petName: "",
@@ -128,9 +149,9 @@ export function SaleRegisterDialog({
     }
     onSubmit(
       {
-        cash: method === "cash" ? total : 0,
-        card: method === "card" ? total : 0,
-        transfer: method === "transfer" ? total : 0,
+        cash: paidAmount("cash"),
+        card: paidAmount("card"),
+        transfer: paidAmount("transfer"),
       },
       items,
       staffId
@@ -339,33 +360,61 @@ export function SaleRegisterDialog({
             </div>
 
             <div className="space-y-1.5">
-              <Label className="text-xs">결제 수단</Label>
-              <div className="flex gap-2">
-                {(Object.keys(PAY_METHOD_LABEL) as PayMethod[]).map((m) => (
-                  <button
-                    key={m}
-                    type="button"
-                    onClick={() => setMethod(m)}
-                    className={cn(
-                      "flex-1 rounded-lg border px-2 py-2 text-xs transition-colors",
-                      method === m
-                        ? "border-primary bg-primary text-primary-foreground"
-                        : "hover:bg-accent"
-                    )}
-                  >
-                    {PAY_METHOD_LABEL[m]}
-                  </button>
+              <Label className="text-xs">
+                결제 수단 (여러 수단으로 나눠 결제 가능)
+              </Label>
+              <div className="space-y-1.5">
+                {PAY_METHODS.map((m) => (
+                  <div key={m} className="flex items-center gap-1.5">
+                    <span className="w-16 shrink-0 text-xs text-muted-foreground">
+                      {PAY_METHOD_LABEL[m]}
+                    </span>
+                    <Input
+                      type="number"
+                      step="1000"
+                      min="0"
+                      className="h-8 flex-1 text-right text-sm"
+                      value={payAmounts[m]}
+                      onChange={(e) =>
+                        setPayAmounts((prev) => ({
+                          ...prev,
+                          [m]: e.target.value,
+                        }))
+                      }
+                      placeholder="0"
+                    />
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      className="h-8 shrink-0 px-2 text-xs"
+                      disabled={total <= 0 || remaining === 0}
+                      onClick={() => fillRemaining(m)}
+                    >
+                      잔액
+                    </Button>
+                  </div>
                 ))}
               </div>
-              <p className="text-xs text-muted-foreground">
-                나눠서 결제한 경우 등록 후 매출 페이지에서 상세 수정할 수
-                있습니다.
-              </p>
+              {total > 0 && (
+                <p
+                  className={cn(
+                    "text-right text-xs font-medium",
+                    paymentMatches ? "text-muted-foreground" : "text-destructive"
+                  )}
+                >
+                  {paymentMatches
+                    ? "결제 합계가 총계와 일치합니다."
+                    : remaining > 0
+                      ? `${remaining.toLocaleString()}원 부족합니다.`
+                      : `${Math.abs(remaining).toLocaleString()}원 초과했습니다.`}
+                </p>
+              )}
             </div>
 
             <Button
               className="w-full"
-              disabled={pending || total <= 0}
+              disabled={pending || !paymentMatches}
               onClick={submit}
             >
               {total.toLocaleString()}원 등록

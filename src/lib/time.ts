@@ -51,28 +51,3 @@ export function kstDateString(offsetDays = 0): string {
   kst.setUTCDate(kst.getUTCDate() + offsetDays);
   return kst.toISOString().slice(0, 10);
 }
-
-/** 생년월일 → 만 나이(년) */
-export function ageInYears(birthDate: string): number {
-  const birth = new Date(`${birthDate}T00:00:00`);
-  const now = new Date();
-  let age = now.getFullYear() - birth.getFullYear();
-  const beforeBirthday =
-    now.getMonth() < birth.getMonth() ||
-    (now.getMonth() === birth.getMonth() && now.getDate() < birth.getDate());
-  if (beforeBirthday) age -= 1;
-  return age;
-}
-
-/** 생년월일 → "3살 6개월" */
-export function formatAge(birthDate: string): string {
-  const birth = new Date(`${birthDate}T00:00:00`);
-  const now = new Date();
-  let months =
-    (now.getFullYear() - birth.getFullYear()) * 12 +
-    (now.getMonth() - birth.getMonth());
-  if (now.getDate() < birth.getDate()) months -= 1;
-  const years = Math.floor(months / 12);
-  const rest = months % 12;
-  return `${years}살${rest > 0 ? ` ${rest}개월` : ""}`;
-}

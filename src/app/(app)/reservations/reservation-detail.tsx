@@ -32,14 +32,9 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
-import { RESERVATION_STATUS } from "@/lib/constants";
+import { RESERVATION_STATUS, SENIOR_PET_AGE } from "@/lib/constants";
 import { cn } from "@/lib/utils";
-import {
-  ageInYears,
-  formatAge,
-  formatKoreanDate,
-  formatKoreanTime,
-} from "@/lib/time";
+import { formatKoreanDate, formatKoreanTime } from "@/lib/time";
 import type { ReservationFull } from "@/lib/data/reservations";
 import type { Profile, ReservationStatus, SaleItem } from "@/lib/types";
 import type { CalendarPermissions } from "./reservations-view";
@@ -283,13 +278,13 @@ export function ReservationDetail({
                   {rp.pet?.breed && ` (${rp.pet.breed})`}
                 </p>
                 <p className="text-xs text-muted-foreground">
-                  {rp.pet?.birth_date &&
-                    `${formatAge(rp.pet.birth_date)}${
-                      ageInYears(rp.pet.birth_date) >= 7 ? " · 노령견" : ""
+                  {rp.pet?.age_years != null &&
+                    `${rp.pet.age_years}살${
+                      rp.pet.age_years >= SENIOR_PET_AGE ? " · 노령견" : ""
                     }`}
                   {rp.pet?.weight_kg != null && ` · ${rp.pet.weight_kg}kg`}
-                  {rp.pet?.neutered != null &&
-                    ` · 중성화 ${rp.pet.neutered ? "O" : "X"}`}
+                  {rp.pet?.marking != null &&
+                    ` · 마킹 ${rp.pet.marking ? "O" : "X"}`}
                 </p>
                 <p className="mt-2">
                   {rp.service ? (

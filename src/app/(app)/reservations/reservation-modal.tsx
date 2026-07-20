@@ -45,7 +45,6 @@ import {
   SLOT_MINUTES,
 } from "@/lib/constants";
 import {
-  ageInYears,
   formatKoreanDate,
   minutesToTime,
   formatKoreanTime,
@@ -80,7 +79,7 @@ interface NewPetDraft {
   name: string;
   breed: string;
   weight: string;
-  birth: string;
+  age: string;
   serviceId: string | null;
 }
 
@@ -88,7 +87,7 @@ const EMPTY_NEW_PET: NewPetDraft = {
   name: "",
   breed: "",
   weight: "",
-  birth: "",
+  age: "",
   serviceId: null,
 };
 
@@ -202,7 +201,7 @@ export function ReservationModal({
         ? petSelections.filter((s) => s.selected).map((s) => s.pet)
         : [];
     return pets.some(
-      (p) => p.birth_date && ageInYears(p.birth_date) >= SENIOR_PET_AGE
+      (p) => p.age_years != null && p.age_years >= SENIOR_PET_AGE
     );
   }, [mode, petSelections]);
 
@@ -236,9 +235,7 @@ export function ReservationModal({
     if (editing) return;
     const senior = selections.some(
       (s) =>
-        s.selected &&
-        s.pet.birth_date &&
-        ageInYears(s.pet.birth_date) >= SENIOR_PET_AGE
+        s.selected && s.pet.age_years != null && s.pet.age_years >= SENIOR_PET_AGE
     );
     if (senior) {
       const seniorForm = consentForms.find((f) => f.title.includes("노령견"));
@@ -399,7 +396,7 @@ export function ReservationModal({
             name: p.name,
             breed: p.breed,
             weight_kg: p.weight === "" ? null : Number(p.weight),
-            birth_date: p.birth || null,
+            age_years: p.age === "" ? null : Number(p.age),
           })),
           base,
           validPets.map((p) => ({ serviceId: p.serviceId }))
@@ -655,9 +652,8 @@ export function ReservationModal({
                           {selection.pet.name}
                           {selection.pet.breed && ` (${selection.pet.breed})`}
                         </span>
-                        {selection.pet.birth_date &&
-                          ageInYears(selection.pet.birth_date) >=
-                            SENIOR_PET_AGE && (
+                        {selection.pet.age_years != null &&
+                          selection.pet.age_years >= SENIOR_PET_AGE && (
                             <span className="rounded bg-orange-100 px-1.5 py-0.5 text-[10px] font-medium text-orange-700">
                               노령견
                             </span>
@@ -720,15 +716,18 @@ export function ReservationModal({
                           placeholder="몸무게(kg)"
                         />
                         <Input
-                          type="date"
-                          value={pet.birth}
+                          type="number"
+                          step="1"
+                          min="0"
+                          value={pet.age}
                           onChange={(e) =>
                             setNewPets((prev) =>
                               prev.map((p, j) =>
-                                j === i ? { ...p, birth: e.target.value } : p
+                                j === i ? { ...p, age: e.target.value } : p
                               )
                             )
                           }
+                          placeholder="나이"
                         />
                       </div>
                       <ServiceChips

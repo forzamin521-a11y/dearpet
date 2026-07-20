@@ -30,8 +30,8 @@ const EMPTY_PET: PetInput = {
   species: "dog",
   breed: "",
   weight_kg: null,
-  birth_date: null,
-  neutered: null,
+  age_years: null,
+  marking: null,
   memo: "",
 };
 
@@ -62,8 +62,8 @@ export function CustomerForm({
           species: p.species,
           breed: p.breed,
           weight_kg: p.weight_kg,
-          birth_date: p.birth_date,
-          neutered: p.neutered,
+          age_years: p.age_years,
+          marking: p.marking,
           memo: p.memo,
         }))
       : [{ ...EMPTY_PET }]
@@ -209,24 +209,30 @@ export function CustomerForm({
                   />
                 </div>
                 <div className="space-y-1">
-                  <Label className="text-xs">생년월일</Label>
+                  <Label className="text-xs">나이</Label>
                   <Input
-                    type="date"
-                    value={pet.birth_date ?? ""}
+                    type="number"
+                    step="1"
+                    min="0"
+                    value={pet.age_years ?? ""}
                     onChange={(e) =>
-                      updatePet(i, { birth_date: e.target.value || null })
+                      updatePet(i, {
+                        age_years:
+                          e.target.value === "" ? null : Number(e.target.value),
+                      })
                     }
+                    placeholder="세"
                   />
                 </div>
                 <div className="space-y-1">
-                  <Label className="text-xs">중성화</Label>
+                  <Label className="text-xs">마킹여부</Label>
                   <Select
                     value={
-                      pet.neutered == null ? "unknown" : pet.neutered ? "yes" : "no"
+                      pet.marking == null ? "unknown" : pet.marking ? "yes" : "no"
                     }
                     onValueChange={(v) =>
                       updatePet(i, {
-                        neutered: v === "unknown" ? null : v === "yes",
+                        marking: v === "unknown" ? null : v === "yes",
                       })
                     }
                   >
@@ -234,7 +240,7 @@ export function CustomerForm({
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="unknown">미상</SelectItem>
+                      <SelectItem value="unknown">모름</SelectItem>
                       <SelectItem value="yes">O</SelectItem>
                       <SelectItem value="no">X</SelectItem>
                     </SelectContent>

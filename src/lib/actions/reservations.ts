@@ -172,7 +172,7 @@ export async function createReservationWithNewCustomer(
     name: string;
     breed: string;
     weight_kg: number | null;
-    birth_date: string | null;
+    age_years: number | null;
   }>,
   base: Omit<ReservationInput, "customerId" | "pets">,
   petServices: Array<{ serviceId: string | null }>
@@ -211,7 +211,7 @@ export async function createReservationWithNewCustomer(
         name: p.name.trim(),
         breed: p.breed,
         weight_kg: p.weight_kg,
-        birth_date: p.birth_date,
+        age_years: p.age_years,
       }))
     )
     .select("id");
