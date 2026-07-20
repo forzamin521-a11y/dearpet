@@ -88,7 +88,7 @@ export function DayGrid({
   for (let m = startMin; m < endMin; m += 60) hourMarks.push(m);
 
   return (
-    <div className="flex min-w-fit">
+    <div className="flex min-w-0 sm:min-w-fit">
       {/* 시간축 */}
       <div className="sticky left-0 z-10 w-16 shrink-0 border-r bg-background">
         <div className="h-10 border-b" />
@@ -113,10 +113,10 @@ export function DayGrid({
         return (
           <Fragment key={column.id ?? "none"}>
             <div
-              className="min-w-56 flex-1 border-r last:border-r-0"
+              className="min-w-0 flex-1 border-r last:border-r-0 sm:min-w-56"
               onContextMenu={(e) => openMenu(e, column.id)}
             >
-              <div className="sticky top-0 z-10 flex h-10 items-center justify-center border-b bg-background text-sm font-semibold">
+              <div className="sticky top-0 z-10 flex h-10 items-center justify-center truncate border-b bg-background px-1 text-sm font-semibold">
                 {column.label}
               </div>
               <div
@@ -279,15 +279,13 @@ function ReservationBox({
   const start = formatKoreanTime(String(reservation.start_time).slice(0, 5));
   const end = formatKoreanTime(String(reservation.end_time).slice(0, 5));
 
-  const productNames = [
-    ...new Set(
-      reservation.reservation_pets
-        .map((rp) =>
-          rp.option ? `${rp.option.product?.emoji ?? ""}${rp.option.product?.name ?? ""}` : null
-        )
-        .filter(Boolean)
-    ),
-  ];
+  /** 반려동물이 받는 서비스 (신규 services 우선, 구 상품>옵션 구조는 폴백) */
+  const serviceLabel = (rp: ReservationFull["reservation_pets"][number]) =>
+    rp.service
+      ? `${rp.service.emoji}${rp.service.name}`
+      : rp.option
+        ? `${rp.option.product?.emoji ?? ""}${rp.option.product?.name ?? ""}`
+        : null;
 
   return (
     <button
@@ -330,15 +328,20 @@ function ReservationBox({
         </p>
       )}
       {fields.petName &&
-        reservation.reservation_pets.map((rp) => (
-          <p key={rp.id} className="truncate">
-            🐾 {rp.pet?.name}
-            {fields.breed && rp.pet?.breed ? ` (${rp.pet.breed})` : ""}
-          </p>
-        ))}
-      {fields.product && productNames.length > 0 && (
-        <p className="truncate">{productNames.join(", ")}</p>
-      )}
+        reservation.reservation_pets.map((rp) => {
+          const service = serviceLabel(rp);
+          return (
+            <div key={rp.id}>
+              <p className="truncate">
+                🐾 {rp.pet?.name}
+                {fields.breed && rp.pet?.breed ? ` (${rp.pet.breed})` : ""}
+              </p>
+              {fields.product && service && (
+                <p className="truncate pl-3 opacity-80">{service}</p>
+              )}
+            </div>
+          );
+        })}
       {fields.memo && reservation.memo && (
         <p className="truncate opacity-70">📝 {reservation.memo}</p>
       )}

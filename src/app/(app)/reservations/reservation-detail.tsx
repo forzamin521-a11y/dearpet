@@ -139,7 +139,12 @@ export function ReservationDetail({
       return;
     }
     if (status === "completed") {
-      setSaleConfirmOpen(true);
+      // 이미 선금/예약금 등을 매출로 등록해둔 경우 다시 묻지 않고 바로 완료 처리
+      if (hasSale) {
+        applyStatus("completed");
+      } else {
+        setSaleConfirmOpen(true);
+      }
     } else if (status === "deleted" || status === "canceled") {
       setConfirmStatus(status);
     } else {
@@ -204,6 +209,34 @@ export function ReservationDetail({
               <Button size="sm" onClick={() => setPaymentMode("later")}>
                 <Receipt /> 매출 등록
               </Button>
+            </div>
+          )}
+
+          {/* 완료 전에도 예약금 등 선입금을 미리 매출로 등록 가능 */}
+          {reservation.status !== "completed" &&
+            reservation.status !== "deleted" &&
+            !hasSale && (
+              <div className="flex items-center justify-between gap-2 rounded-lg border bg-secondary/50 p-3">
+                <p className="text-sm text-muted-foreground">
+                  예약금 등 선입금이 있다면 미리 매출로 등록할 수 있습니다.
+                </p>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setPaymentMode("later")}
+                >
+                  <Receipt /> 매출 등록
+                </Button>
+              </div>
+            )}
+
+          {/* 완료 전 미리 등록된 매출(선입금)이 있음을 안내 */}
+          {reservation.status !== "completed" && hasSale && (
+            <div className="flex items-center gap-2 rounded-lg border border-green-300 bg-green-50 p-3">
+              <p className="text-sm font-medium text-green-700">
+                ✅ 선입금이 매출로 등록되어 있습니다. 완료 처리 시 다시 묻지
+                않습니다.
+              </p>
             </div>
           )}
 
