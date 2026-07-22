@@ -16,7 +16,7 @@ export function AppHeader() {
   const title = TITLES.find(([prefix]) => pathname.startsWith(prefix))?.[1] ?? "";
 
   return (
-    <header className="flex h-12 shrink-0 items-center gap-2 border-b px-4">
+    <header className="glass-toolbar sticky top-0 z-20 flex h-12 shrink-0 items-center gap-2 border-b px-4">
       <SidebarTrigger />
       <Separator orientation="vertical" className="h-4" />
       <h1 className="text-sm font-semibold">{title}</h1>

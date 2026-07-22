@@ -116,7 +116,7 @@ export function DayGrid({
               className="min-w-0 flex-1 border-r last:border-r-0 sm:min-w-56"
               onContextMenu={(e) => openMenu(e, column.id)}
             >
-              <div className="sticky top-0 z-10 flex h-10 items-center justify-center truncate border-b bg-background px-1 text-sm font-semibold">
+              <div className="glass-toolbar sticky top-0 z-10 flex h-10 items-center justify-center truncate border-b px-1 text-sm font-semibold">
                 {column.label}
               </div>
               <div

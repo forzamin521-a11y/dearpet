@@ -170,7 +170,7 @@ export function ReservationsView(props: ReservationsViewProps) {
 
       {/* 메인 캘린더 */}
       <div className="flex min-w-0 flex-1 flex-col">
-        <div className="flex flex-wrap items-center justify-between gap-2 border-b p-3">
+        <div className="glass-toolbar sticky top-0 z-20 flex flex-wrap items-center justify-between gap-2 border-b p-3">
           <div className="flex items-center gap-1">
             <Button
               size="icon-sm"
